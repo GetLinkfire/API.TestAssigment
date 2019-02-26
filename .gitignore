@@ -200,3 +200,4 @@ FakesAssemblies/
 
 # Visual Studio 2017 settings file
 *.sln.DotSettings
+data/
