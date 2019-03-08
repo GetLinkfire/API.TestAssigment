@@ -2,15 +2,15 @@
 
 Hi! 
 
-Current task tightly relalated to our project. We are working on aggregating information from different media services (such as Spotify, Deezer, iTunes ect.) under one url (check this to see how it is look like https://lnk.to/test_link - music link, https://tix.to/test_link - ticket link)
+Current task tightly related to our project. We are working on aggregating information from different media services (such as Spotify, Deezer, iTunes etc..) under one url (check this to see how it is look like https://lnk.to/test_link - music link, https://tix.to/test_link - ticket link)
 
-We respect your time, so we did some kind of a code template of task below. There is couple of 'to do' that you could implement. If you have time and prefer to do **everything from scrach, it is also possible**. We are trying to be as flexible as possible and give you an ability to decide on solution and effort that you want to spend on the task. 
+We respect your time, so we did some kind of a code template of task below. There is couple of 'to do' that you could implement. If you have time and prefer to do **everything from scratch, it is also possible**. We are trying to be as flexible as possible and give you an ability to decide on solution and effort that you want to spend on the task. 
 
 ### What will be evaluate and appreciate:
 
 - ability to write clean, readable and supportable code
 - ability to recognize where pattern/principle could be used and ability to apply the pattern/principle
-- ability to work with existing code (if work with template will be choosen)
+- ability to work with existing code (if work with template will be chosen)
 - ability to organize code
 - ability to write documentation to your own code		
 
@@ -34,17 +34,17 @@ Not all part of the code are testable | Inversion of Control can be implemented 
 
 ## Goal
 
-Implement CRUD operation for links with WEB.API. Information that could be used for link search should be in DB (such as Title, Artist, Code, Domain). All other information (destination and tracking info) should be stored in a file, assume that this file will be accessable by another system by domain/code. 
+Implement CRUD operation for links with WEB.API. Information that could be used for link search should be in DB (such as Title, Artist, Code, Domain). All other information (destination and tracking info) should be stored in a file, assume that this file will be accessible by another system by domain/code. 
 
-Let's try to undersatand what is Link entity and what relations it should have.
+Let's try to understand what is Link entity and what relations it should have.
 
 #### Link:
 
 - Title (required, max length: 255)
-- Code  (min length: 2; max lenght: 100, shold be alphanumeric, special characters are not allowed, except underscore) - if not provided random code should be generated 
+- Code  (min length: 2; max length: 100, should be alphanumeric, special characters are not allowed, except underscore) - if not provided random code should be generated 
 - Url   (required, rule for urls should be applied)
 - MediaType (required, indicate if it Ticket or Music link)
-- Domain  (required, assume that there is another sourse of available domains, to current DB replicated only Name and Id, so for this task it is static data)
+- Domain  (required, assume that there is another source of available domains, to current DB replicated only Name and Id, so for this task it is static data)
 - Artists (list of artists, used as a 'tag' for search)
 - Link could not be removed, only marked as deleted
 - **Music Link** should have 
@@ -67,10 +67,10 @@ Let's try to undersatand what is Link entity and what relations it should have.
 - Date	 (required)
 - Venue    (required, max length: 255)
 - Location (required, max length: 255)
-- ExternalId - string - should not be exposed to API, assume that it is beeing set from another system
+- ExternalId - string - should not be exposed to API, assume that it is being set from another system
 		
 #### TrackingInfo:
-- MediaServiceName - string (MediaService.Name) - should not be exposed to API, beeing set on internaly from media service by MediaService.Id
+- MediaServiceName - string (MediaService.Name) - should not be exposed to API, being set on internally from media service by MediaService.Id
 - Mobile		(rule for urls should be applied) - url for redirecting users if they use mobile
 - Web			(required, rule for urls should be applied) - url for redirecting users if they use mobile
 - Artist		- string
@@ -83,21 +83,21 @@ Let's try to undersatand what is Link entity and what relations it should have.
 #### Domain (predefined):
 - Name (required, max length: 255)
 
-### Acceptance criterias (validation)
+### Acceptance criterions (validation)
 
 link creation: 
 - argument exception should be thrown in case if combination of *domain/code* is used. Also if it is conflict with reserved *domain/code*. **Reserved shortlinks** are all possible combinations for current shortlink plus 2 symbols or changed 2 last symbols, ie. for shortlink *domain/code* - *domain/co{+2 symbols}* should be reserved, as well as *domain/code{+2 symbols}*
-- misic destinations with unexisting media services should not be saved
+- music destinations with nonexisting media services should not be saved
 
 link updation:
 - if domain or code were changed same validation should be applied
 - update of MediaType should not be supported
-- if link is not active or not exists exeption should be thrown
-- misic destinations with unexisting media services should not be saved
+- if link is not active or not exists exception should be thrown
+- music destinations with nonexisting media services should not be saved
 - ExternalId for ticket destinations should not be updatable
 
 link deletion:
-- link should not be phisically removed, but shortlink should be available for other link
+- link should not be physically removed, but shortlink should be available for other link
 - link files should be moved to *domain/{linkId}*
 - if trying to remove inactive link exception should be thrown
 
