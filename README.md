@@ -4,8 +4,10 @@ Hi!
 
 This code assignment is closely related to variety of projects at Linkfire. We are working on aggregating information from different media services (such as Spotify, Deezer, iTunes etc..) under one URL. Check this to see how a smart link looks like.
 
-- https://lnk.to/test_link - music link
-- https://tix.to/test_link - ticket link
+- https://lnk.to/test_link - music link landing page
+- https://tix.to/test_link - ticket link landing page
+
+There you can see different media services (destinations), user have an ability to setup different destinations per country. So list of destinations could be different depend on from which country landing page is opened. Fx. if media service not available in some countries, or url is different for different countries.
 
 We respect your time, so we prepared a code template of a task below. There is couple of 'to do' that you could implement. If you have time and prefer to do **everything from scratch, it is also possible**. We are trying to be as flexible as possible and give you an ability to decide on solution and effort that you want to spend on the task. 
 
