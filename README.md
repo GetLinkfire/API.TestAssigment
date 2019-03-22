@@ -27,7 +27,7 @@ We respect your time, so we prepared a code template of a task below. There is c
 4. think about the case when multiple users are updating the same link, how to avoid DB entity and Storage model be out of sync (*optional*)
 5. refactor code, for example there is a lot of code duplication (*optional*)
 
-**We are not expecting solving ALL problems**, peek a couple of them and pls write why you choose them, when you will create PR, you could also name other problems and would be nice to have, short description how to solve to them.
+**We are not expecting solving ALL problems**, peek a couple of them and pls write why you choose them in your email, you could also name other problems and would be nice to have, short description how to solve to them.
 
 Example:
 ```
