@@ -61,7 +61,7 @@ namespace Service.Tests.Storage
 		{
 			var path = $"unittest/notExists/general.json";
 			IStorage storageService = new StorageService();
-			Assert.Throws<DirectoryNotFoundException>(() => { storageService.GetAsync<TestObject>(path); });
+			Assert.ThrowsAsync<FileNotFoundException>(async () => await storageService.GetAsync<TestObject>(path));
 		}
 
 		[Test]
@@ -71,13 +71,30 @@ namespace Service.Tests.Storage
 			var path = $"unittest/{emptyContentId}/general.json";
 			var absolutePath = Path.Combine(SolutionFolder, "data", path);
 			Directory.CreateDirectory(Path.GetDirectoryName(absolutePath));
-			File.WriteAllText(absolutePath, "");
+			File.WriteAllText(absolutePath, "\"{aaaa}\"");
 
 			IStorage storageService = new StorageService();
-			Assert.Throws<Exception>(() => { storageService.GetAsync<TestObject>(path); });
+
+			Assert.ThrowsAsync<Newtonsoft.Json.JsonSerializationException>(async () => await storageService.GetAsync<TestObject>(path));
 		}
 
-		[Test]
+        [Test]
+        public async Task Get_Null()
+        {
+            var emptyContentId = Guid.NewGuid();
+            var path = $"unittest/{emptyContentId}/general.json";
+            var absolutePath = Path.Combine(SolutionFolder, "data", path);
+            Directory.CreateDirectory(Path.GetDirectoryName(absolutePath));
+            File.WriteAllText(absolutePath, string.Empty);
+
+            IStorage storageService = new StorageService();
+
+            var data = await storageService.GetAsync<TestObject>(path);
+
+            Assert.IsNull(data);
+        }
+
+        [Test]
 		public void Save()
 		{
 			var content = Builder<TestObject>.CreateNew()

@@ -31,7 +31,7 @@ namespace Service.Storage
             var absolutePath = Path.Combine(SolutionFolder, _tempFolder, filePath);
             if (!File.Exists(absolutePath))
             {
-                throw new Exception($"File {absolutePath} not found.");
+                throw new FileNotFoundException($"File {absolutePath} not found.");
             }
 
             using (var reader = new StreamReader(absolutePath))

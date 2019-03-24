@@ -24,8 +24,7 @@ namespace Service.Mapping
                 .ForMember(dest => dest.IsActive, exp => exp.Ignore())
                 .ForMember(dest => dest.MediaType, exp => exp.Ignore());
 
-            CreateMap<Repository.Entities.Link, LinkModel>()
-                .ForMember(dest => dest.DomainId, exp => exp.MapFrom(src => src.Domain.Id));
+            CreateMap<Repository.Entities.Link, LinkModel>();
 
             CreateMap<Repository.Entities.Link, ExtendedLinkModel>()
                 .IncludeBase<Repository.Entities.Link, LinkModel>()

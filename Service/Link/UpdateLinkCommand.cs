@@ -42,8 +42,8 @@ namespace Service.Link
 			var dbLink = await linkRepository.GetByIdAsync(argument.Link.Id);
 
 			var domain = await domainRepository.GetByIdAsync(argument.Link.DomainId);
-			string oldShortLink = null;
 
+			string oldShortLink = null;
 			if (dbLink.DomainId != argument.Link.DomainId ||
 				!dbLink.Code.Equals(argument.Link.Code, StringComparison.InvariantCultureIgnoreCase))
 			{
@@ -80,7 +80,10 @@ namespace Service.Link
                             md => md.Value.Where(d => mediaServices.Select(m => m.Id).Contains(d.MediaServiceId))
                                         .Select(d => Mapper.Map<Models.Link.Music.DestinationModel, Models.StorageModel.Music.DestinationStorageModel>(d, opt => opt.AfterMap((music, str) =>
                                         {
-                                            str.TrackingInfo.MediaServiceName = mediaServices.First(m => m.Id == d.MediaServiceId).Name;
+                                            if (str.TrackingInfo != null)
+                                            {
+                                                str.TrackingInfo.MediaServiceName = mediaServices.First(m => m.Id == d.MediaServiceId).Name;
+                                            }
                                         })))
                                          .ToList());
                     }));

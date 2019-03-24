@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using FizzWare.NBuilder;
 using NUnit.Framework;
 using Repository.Entities;
-using Repository.Interfaces;
 
 namespace Repository.Tests
 {
@@ -13,99 +12,84 @@ namespace Repository.Tests
     // Unit-test are supposed to be instantly fast and work in memory
     // It works with actual SQL database on disk (!!!), it is REALLY slow (!!!)
     // If I have time I'll create a repository unit test with InMemory db using Effort
-	[TestFixture]
+    [TestFixture]
 	[ExcludeFromCodeCoverage]
 	public class LinkRepositoryTest
 	{
-		private LinksContext _context;
-		private ILinkRepository _repository;
+        [Test]
+        public async Task CreateLink_DomainExist_OneArtistExist()
+        {
+            var domain = Builder<Domain>.CreateNew()
+                .With(d => d.Id, Guid.NewGuid())
+                .With(d => d.Name, "domain")
+                .Build();
+            var artists = Builder<Artist>.CreateListOfSize(2)
+                .All()
+                .Do(x => x.Id = Guid.NewGuid())
+                .Build().ToList();
 
-		[SetUp]
-		public void Init()
-		{
-			_context = new LinksContext();
-			_repository = new LinkRepository(_context);
-		}
+            using (var context = new LinksContext())
+            {
+                // imitates existing entries
+                context.Domains.Add(domain);
+                context.Artists.Add(artists.First());
+                await context.SaveChangesAsync();
 
-		[TearDown]
-		public void Cleanup()
-		{
-			_context.Dispose();
-		}
+                var link = Builder<Link>.CreateNew()
+                    .With(x => x.Id, Guid.NewGuid())
+                    .With(x => x.IsActive, true)
+                    .With(x => x.Domain, domain)
+                    .With(x => x.DomainId, domain.Id)
+                    .With(x => x.Artists, artists)
+                    .Build();
 
-		[Test]
-		public async Task CreateLink_DomainExist_OneArtistExist()
-		{
-			var domain = Builder<Domain>.CreateNew()
-				.With(d => d.Id, Guid.NewGuid())
-				.With(d => d.Name, "domain")
-				.Build();
-			var artists = Builder<Artist>.CreateListOfSize(2)
-				.All()
-				.Do(x => x.Id = Guid.NewGuid())
-				.Build().ToList();
+                var entity = await new LinkRepository(context).CreateAsync(link);
 
-			// imitates existing entries
-			using (var contex = new LinksContext())
-			{
-				contex.Domains.Add(domain);
-				contex.Artists.Add(artists.First());
-				contex.SaveChanges();
-			}
+                var saved = context.Links.Find(entity.Id);
 
-			var link = Builder<Link>.CreateNew()
-				.With(x => x.Id, Guid.NewGuid())
-				.With(x => x.Domain, domain)
-				.With(x => x.DomainId, domain.Id)
-				.With(x => x.Artists, artists)
-				.Build();
+                Assert.IsTrue(entity.IsActive);
 
-			var entity = await _repository.CreateAsync(link);
+                Assert.IsNotNull(saved);
+                Assert.AreEqual(link.Artists.Count, saved.Artists.Count);
+            }
+        }
 
-			var saved = _context.Links.Find(entity.Id);
+        [Test]
+        public async Task CreateLink_DomainExist_ArtistsAreNotExists()
+        {
+            var domain = Builder<Domain>.CreateNew()
+                .With(d => d.Id, Guid.NewGuid())
+                .With(d => d.Name, "domain")
+                .Build();
+            var artists = Builder<Artist>.CreateListOfSize(2)
+                .All()
+                .Do(x => x.Id = Guid.NewGuid())
+                .Build().ToList();
 
-			Assert.IsTrue(entity.IsActive);
+            // imitates existing entries
+            using (var context = new LinksContext())
+            {
+                context.Domains.Add(domain);
+                await context.SaveChangesAsync();
 
-			Assert.IsNotNull(saved);
-			Assert.AreEqual(link.Artists.Count, saved.Artists.Count);
+                var link = Builder<Link>.CreateNew()
+                    .With(x => x.Id, Guid.NewGuid())
+                    .With(x => x.Domain, domain)
+                    .With(x => x.IsActive, true)
+                    .With(x => x.DomainId, domain.Id)
+                    .With(x => x.Artists, artists)
+                    .Build();
 
-		}
+                var entity = await new LinkRepository(context).CreateAsync(link);
 
-		[Test]
-		public async Task CreateLink_DomainExist_ArtistsAreNotExists()
-		{
-			var domain = Builder<Domain>.CreateNew()
-				.With(d => d.Id, Guid.NewGuid())
-				.With(d => d.Name, "domain")
-				.Build();
-			var artists = Builder<Artist>.CreateListOfSize(2)
-				.All()
-				.Do(x => x.Id = Guid.NewGuid())
-				.Build().ToList();
+                var saved = context.Links.Find(entity.Id);
 
-			// imitates existing entries
-			using (var contex = new LinksContext())
-			{
-				contex.Domains.Add(domain);
-				contex.SaveChanges();
-			}
+                Assert.IsTrue(entity.IsActive);
 
-			var link = Builder<Link>.CreateNew()
-				.With(x => x.Id, Guid.NewGuid())
-				.With(x => x.Domain, domain)
-				.With(x => x.DomainId, domain.Id)
-				.With(x => x.Artists, artists)
-				.Build();
-
-			var entity = await _repository.CreateAsync(link);
-
-			var saved = _context.Links.Find(entity.Id);
-
-			Assert.IsTrue(entity.IsActive);
-
-			Assert.IsNotNull(saved);
-			Assert.AreEqual(link.Artists.Count, saved.Artists.Count);
-		}
+                Assert.IsNotNull(saved);
+                Assert.AreEqual(link.Artists.Count, saved.Artists.Count);
+            }
+        }
 
 		// TODO: implement DB link update + unit tests
 	}

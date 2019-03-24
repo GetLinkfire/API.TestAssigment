@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using FizzWare.NBuilder;
@@ -37,12 +38,14 @@ namespace Service.Tests.Link
 		[SetUp]
 		public void Init()
 		{
-			_linkRepository = MockRepository.GenerateMock<ILinkRepository>();
+            AutoMapperConfig.Configure();
+
+            _linkRepository = MockRepository.GenerateMock<ILinkRepository>();
 			_domainRepository = MockRepository.GenerateMock<IDomainRepository>();
 			_mediaServiceRepository = MockRepository.GenerateMock<IMediaServiceRepository>();
 
 			_storageService = MockRepository.GenerateMock<IStorage>();
-            _uniqueLinkService = MockRepository.GenerateMock<IUniqueLinkService>();
+            _uniqueLinkService = new UniqueLinkService(_storageService);
 
             _createLinkCommand = new CreateLinkCommand(_storageService, _domainRepository, _mediaServiceRepository, _linkRepository, _uniqueLinkService);
 
@@ -96,14 +99,15 @@ namespace Service.Tests.Link
 				.Return(null)
 				.WhenCalled(x =>
 				{
-					x.ReturnValue = (Repository.Entities.Link)x.Arguments[0];
+					x.ReturnValue = Task.FromResult((Repository.Entities.Link)x.Arguments[0]);
 				});
 
 			_storageService.Expect(x =>
 				x.SaveAsync(Arg<string>.Matches(path => path.StartsWith(domain.Name) && path.EndsWith("/general.json")),
-					Arg<StorageModel>.Matches(st =>
-						st.Destinations.ContainsKey("all")
-						&& st.Destinations["all"].Count == mediaServices.Count)));
+					Arg<Models.StorageModel.Base.StorageModel>.Matches(st =>
+						((StorageModel)st).Destinations.ContainsKey("all")
+						&& ((StorageModel)st).Destinations["all"].Count == mediaServices.Count)))
+                 .Return(Task.FromResult(0));
 
 			var result = await _createLinkCommand.ExecuteAsync(argument);
 
@@ -112,9 +116,8 @@ namespace Service.Tests.Link
 			Assert.AreEqual(argument.Link.MediaType, result.MediaType);
 			Assert.AreEqual(argument.Link.Title, result.Title);
 			Assert.AreEqual(argument.Link.Url, result.Url);
-			Assert.IsNull(result.Artists);
+			Assert.IsEmpty(result.Artists);
 		}
-
 
 		[Test]
 		public async Task Execute_WithoutCode_Ticket()
@@ -155,14 +158,15 @@ namespace Service.Tests.Link
 				.Return(null)
 				.WhenCalled(x =>
 				{
-					x.ReturnValue = (Repository.Entities.Link)x.Arguments[0];
-				});
+                    x.ReturnValue = Task.FromResult((Repository.Entities.Link)x.Arguments[0]);
+                });
 
 			_storageService.Expect(x =>
 				x.SaveAsync(Arg<string>.Matches(path => path.StartsWith(domain.Name) && path.EndsWith("/general.json")),
-					Arg<Models.StorageModel.Ticket.StorageModel>.Matches(st =>
-						st.Destinations.ContainsKey("all")
-						&& st.Destinations["all"].Count == argument.TicketDestinations["all"].Count)));
+					Arg<Models.StorageModel.Base.StorageModel>.Matches(st =>
+						((Models.StorageModel.Ticket.StorageModel)st).Destinations.ContainsKey("all")
+						&& ((Models.StorageModel.Ticket.StorageModel)st).Destinations["all"].Count == argument.TicketDestinations["all"].Count)))
+                .Return(Task.FromResult(0)); ;
 
 			var result = await _createLinkCommand.ExecuteAsync(argument);
 
@@ -193,7 +197,7 @@ namespace Service.Tests.Link
 			_domainRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(argument.Link.DomainId))).Return(Task.FromResult(domain));
 
 			_storageService.Expect(x => x.GetFileList(Arg<string>.Is.Equal($"{domain.Name}"), Arg<string>.Is.Equal("code")))
-				.Return(new List<string>() { $"{domain.Name}/code" });
+				.Return(new List<string>() { $"{domain.Name}{Path.DirectorySeparatorChar}code" });
 
 			Assert.ThrowsAsync<ArgumentException>(async () => { await _createLinkCommand.ExecuteAsync(argument); });
 		}

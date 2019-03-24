@@ -69,7 +69,10 @@ namespace Service.Link
                             md => md.Value.Where(d => mediaServices.Select(m => m.Id).Contains(d.MediaServiceId))
                                         .Select(d => Mapper.Map<Models.Link.Music.DestinationModel, Models.StorageModel.Music.DestinationStorageModel>(d, opt => opt.AfterMap((music, str) =>
                                          {
-                                             str.TrackingInfo.MediaServiceName = mediaServices.First(m => m.Id == d.MediaServiceId).Name;
+                                             if (str.TrackingInfo != null)
+                                             {
+                                                 str.TrackingInfo.MediaServiceName = mediaServices.First(m => m.Id == d.MediaServiceId).Name;
+                                             }
                                          })))
                                          .ToList());
                     }));
