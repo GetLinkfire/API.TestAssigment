@@ -89,19 +89,6 @@ namespace Repository
                 }
 
                 link.Artists = existingArtists;
-
-                //var linkArtistIds = link.Artists.Select(x => x.Id);
-                //var artists = Context.Artists.Where(x => linkArtistIds.Contains(x.Id)).ToDictionary(x => x.Id, x => x);
-
-                //foreach (var artist in link.Artists)
-                //{
-                //    if (!artists.ContainsKey(artist.Id))
-                //    {
-                //        artists.Add(artist.Id, artist);
-                //    }
-                //}
-
-                //link.Artists = artists.Select(x => x.Value).ToList();
             }
         }
 

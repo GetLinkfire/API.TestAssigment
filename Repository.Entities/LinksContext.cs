@@ -1,4 +1,5 @@
-﻿using System.Data.Entity;
+﻿using System.Data.Common;
+using System.Data.Entity;
 
 namespace Repository.Entities
 {
@@ -18,7 +19,15 @@ namespace Repository.Entities
         {
         }
 
-		public DbSet<Link> Links { get; set; }
+        /// <summary>
+        /// For unit-tests
+        /// </summary>
+        /// <param name="dbConnection"></param>
+        public LinksContext(DbConnection dbConnection) : base(dbConnection, true)
+        {
+        }
+
+        public DbSet<Link> Links { get; set; }
 
 		public DbSet<Domain> Domains { get; set; }
 
