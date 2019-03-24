@@ -14,13 +14,7 @@ namespace Service.Link
         {
             this.storageService = storageService;
         }
-
-        /// <summary>
-		/// Generate an unique short code for link
-		/// </summary>
-		/// <param name="storageService"></param>
-		/// <param name="domainName"></param>
-		/// <returns></returns>
+        
 		public string GetUniqueLinkShortCode(string domainName)
         {
             var code = string.Empty;
@@ -33,13 +27,6 @@ namespace Service.Link
             return code;
         }
 
-        /// <summary>
-        /// Checks if the link code is valid
-        /// </summary>
-        /// <param name="storageService"></param>
-        /// <param name="domainName"></param>
-        /// <param name="code"></param>
-        /// <returns></returns>
 		public bool IsValidLinkCode(string domainName, string code)
         {
             var shorterCode = code.Substring(0, code.Length - 2);
