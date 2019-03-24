@@ -41,9 +41,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ArtistModel.cs" />
+    <Compile Include="Enums\MediaType.cs" />
+    <Compile Include="Link\Base\DestinationModel.cs" />
     <Compile Include="Link\ExtendedLinkModel.cs" />
     <Compile Include="Link\LinkModel.cs" />
     <Compile Include="Link\Music\DestinationModel.cs" />
+    <Compile Include="StorageModel\Base\DestinationStorageModel.cs" />
+    <Compile Include="StorageModel\Base\StorageModel.cs" />
     <Compile Include="StorageModel\Music\DestinationStorageModel.cs" />
     <Compile Include="StorageModel\Music\TrackingStorageModel.cs" />
     <Compile Include="StorageModel\Ticket\DestinationStorageModel.cs" />
@@ -52,12 +56,6 @@
     <Compile Include="Link\Ticket\DestinationModel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StorageModel\Music\StorageModel.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Repository.Entities\Repository.Entities.csproj">
-      <Project>{F4317CDD-E531-44B2-A1EF-FAAC7E268A0C}</Project>
-      <Name>Repository.Entities</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

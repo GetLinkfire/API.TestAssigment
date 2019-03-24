@@ -1,12 +1,14 @@
 ﻿using System;
-using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations;
+using Repository.Entities.Interfaces;
 
 namespace Repository.Entities
 {
-	[Table("Domains")]
-	public class Domain
+    public class Domain : IEntity<Guid>
 	{
-		public Guid Id { get; set; }
+        public Guid Id { get; set; }
+
+        [MaxLength(255)]
 		public string Name { get; set; }
 	}
 }

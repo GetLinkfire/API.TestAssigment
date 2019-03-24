@@ -1,11 +1,11 @@
 ﻿using System;
-using System.Linq;
+using System.Threading.Tasks;
 using Repository.Entities;
 
 namespace Repository.Interfaces
 {
-	public interface IDomainRepository
+    public interface IDomainRepository
 	{
-		Domain GetDomain(Guid id);
+		Task<Domain> GetByIdAsync(Guid id);
 	}
 }

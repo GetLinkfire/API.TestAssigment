@@ -2,28 +2,32 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading.Tasks;
 using FizzWare.NBuilder;
 using NUnit.Framework;
 using Repository.Entities;
-using Repository.Entities.Enums;
 using Repository.Interfaces;
 using Rhino.Mocks;
+using Service.Interfaces;
 using Service.Interfaces.Storage;
 using Service.Link;
+using Service.Link.Arguments;
 using Service.Models;
+using Service.Models.Enums;
 using Service.Models.Link;
 using Service.Models.Link.Music;
 using Service.Models.StorageModel.Music;
 
 namespace Service.Tests.Link
 {
-	[TestFixture]
+    [TestFixture]
 	[ExcludeFromCodeCoverage]
 	public class CreateLinkCommandTest
 	{
 		private IStorage _storageService;
+        private IUniqueLinkService _uniqueLinkService;
 
-		private ILinkRepository _linkRepository;
+        private ILinkRepository _linkRepository;
 		private IDomainRepository _domainRepository;
 		private IMediaServiceRepository _mediaServiceRepository;
 
@@ -38,8 +42,9 @@ namespace Service.Tests.Link
 			_mediaServiceRepository = MockRepository.GenerateMock<IMediaServiceRepository>();
 
 			_storageService = MockRepository.GenerateMock<IStorage>();
+            _uniqueLinkService = MockRepository.GenerateMock<IUniqueLinkService>();
 
-			_createLinkCommand = new CreateLinkCommand(_storageService, _domainRepository, _mediaServiceRepository, _linkRepository);
+            _createLinkCommand = new CreateLinkCommand(_storageService, _domainRepository, _mediaServiceRepository, _linkRepository, _uniqueLinkService);
 
 		}
 
@@ -53,7 +58,7 @@ namespace Service.Tests.Link
 		}
 
 		[Test]
-		public void Execute_WithoutCode_Music()
+		public async Task Execute_WithoutCode_Music()
 		{
 			var domainId = Guid.NewGuid();
 			var domain = Builder<Domain>.CreateNew()
@@ -80,14 +85,14 @@ namespace Service.Tests.Link
 				})
 				.Build();
 
-			_domainRepository.Expect(x => x.GetDomain(Arg<Guid>.Is.Equal(domainId))).Return(domain);
+			_domainRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(domainId))).Return(Task.FromResult(domain));
 			_storageService.Expect(x => x.GetFileList(Arg<string>.Is.Equal(domain.Name), Arg<string>.Is.Anything)).Return(Enumerable.Empty<string>().ToList());
 
-			_mediaServiceRepository.Expect(x => x.GetMediaServices()).Return(mediaServices.AsQueryable());
+			_mediaServiceRepository.Expect(x => x.GetUniqueAsync(Arg<IEnumerable<Guid>>.Is.Anything)).Return(Task.FromResult(mediaServices));
 			_linkRepository.Expect(x =>
-				x.CreateLink(Arg<Repository.Entities.Link>.Matches(entity =>
+				x.CreateAsync(Arg<Repository.Entities.Link>.Matches(entity =>
 					entity.DomainId == domainId
-					&& entity.MediaType == argument.Link.MediaType)))
+					&& (byte)entity.MediaType == (byte)argument.Link.MediaType)))
 				.Return(null)
 				.WhenCalled(x =>
 				{
@@ -95,12 +100,12 @@ namespace Service.Tests.Link
 				});
 
 			_storageService.Expect(x =>
-				x.Save(Arg<string>.Matches(path => path.StartsWith(domain.Name) && path.EndsWith("/general.json")),
+				x.SaveAsync(Arg<string>.Matches(path => path.StartsWith(domain.Name) && path.EndsWith("/general.json")),
 					Arg<StorageModel>.Matches(st =>
 						st.Destinations.ContainsKey("all")
 						&& st.Destinations["all"].Count == mediaServices.Count)));
 
-			var result = _createLinkCommand.Execute(argument);
+			var result = await _createLinkCommand.ExecuteAsync(argument);
 
 			Assert.IsTrue(result.IsActive);
 			Assert.AreEqual(domainId, result.DomainId);
@@ -112,7 +117,7 @@ namespace Service.Tests.Link
 
 
 		[Test]
-		public void Execute_WithoutCode_Ticket()
+		public async Task Execute_WithoutCode_Ticket()
 		{
 			var domainId = Guid.NewGuid();
 			var domain = Builder<Domain>.CreateNew()
@@ -139,14 +144,14 @@ namespace Service.Tests.Link
 				.Build();
 
 			
-			_domainRepository.Expect(x => x.GetDomain(Arg<Guid>.Is.Equal(domainId))).Return(domain);
+			_domainRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(domainId))).Return(Task.FromResult(domain));
 			_storageService.Expect(x => x.GetFileList(Arg<string>.Is.Equal(domain.Name), Arg<string>.Is.Anything)).Return(Enumerable.Empty<string>().ToList());
 
-			_mediaServiceRepository.Expect(x => x.GetMediaServices()).Repeat.Never();
-			_linkRepository.Expect(x =>
-				x.CreateLink(Arg<Repository.Entities.Link>.Matches(entity =>
+            _mediaServiceRepository.Expect(x => x.GetUniqueAsync(Arg<IEnumerable<Guid>>.Is.Anything)).Repeat.Never();
+            _linkRepository.Expect(x =>
+				x.CreateAsync(Arg<Repository.Entities.Link>.Matches(entity =>
 					entity.DomainId == domainId
-					&& entity.MediaType == argument.Link.MediaType)))
+					&& (byte)entity.MediaType == (byte)argument.Link.MediaType)))
 				.Return(null)
 				.WhenCalled(x =>
 				{
@@ -154,12 +159,12 @@ namespace Service.Tests.Link
 				});
 
 			_storageService.Expect(x =>
-				x.Save(Arg<string>.Matches(path => path.StartsWith(domain.Name) && path.EndsWith("/general.json")),
+				x.SaveAsync(Arg<string>.Matches(path => path.StartsWith(domain.Name) && path.EndsWith("/general.json")),
 					Arg<Models.StorageModel.Ticket.StorageModel>.Matches(st =>
 						st.Destinations.ContainsKey("all")
 						&& st.Destinations["all"].Count == argument.TicketDestinations["all"].Count)));
 
-			var result = _createLinkCommand.Execute(argument);
+			var result = await _createLinkCommand.ExecuteAsync(argument);
 
 			Assert.IsTrue(result.IsActive);
 			Assert.AreEqual(domainId, result.DomainId);
@@ -185,12 +190,12 @@ namespace Service.Tests.Link
 					.Build())
 				.Build();
 			
-			_domainRepository.Expect(x => x.GetDomain(Arg<Guid>.Is.Equal(argument.Link.DomainId))).Return(domain);
+			_domainRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(argument.Link.DomainId))).Return(Task.FromResult(domain));
 
 			_storageService.Expect(x => x.GetFileList(Arg<string>.Is.Equal($"{domain.Name}"), Arg<string>.Is.Equal("code")))
 				.Return(new List<string>() { $"{domain.Name}/code" });
 
-			Assert.Throws<ArgumentException>(() => { _createLinkCommand.Execute(argument); });
+			Assert.ThrowsAsync<ArgumentException>(async () => { await _createLinkCommand.ExecuteAsync(argument); });
 		}
 	}
 }

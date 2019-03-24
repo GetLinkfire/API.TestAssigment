@@ -1,190 +1,130 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
-using Repository.Entities;
-using Repository.Entities.Enums;
+using System.Threading.Tasks;
+using AutoMapper;
 using Repository.Interfaces;
+using Service.Helpers;
+using Service.Interfaces;
 using Service.Interfaces.Commands;
 using Service.Interfaces.Storage;
-using Service.Models;
+using Service.Link.Arguments;
 using Service.Models.Link;
-using Service.Models.StorageModel.Music;
+
+using MediaType = Service.Models.Enums.MediaType;
 
 namespace Service.Link
 {
-	public class CreateLinkCommand : ICommand<LinkModel, CreateLinkArgument>
+    public class CreateLinkCommand : ICommand<LinkModel, CreateLinkArgument>
 	{
-		private readonly IStorage _storageService;
-		private readonly IDomainRepository _domainRepository;
-		private readonly IMediaServiceRepository _mediaServiceRepository;
-		private readonly ILinkRepository _linkRepository;
+		private readonly IStorage storageService;
+		private readonly IDomainRepository domainRepository;
+		private readonly IMediaServiceRepository mediaServiceRepository;
+		private readonly ILinkRepository linkRepository;
+        private readonly IUniqueLinkService uniqueLinkService;
 
-		public CreateLinkCommand(
+        public CreateLinkCommand(
 			IStorage storageService,
 			IDomainRepository domainRepository,
 			IMediaServiceRepository mediaServiceRepository,
-			ILinkRepository linkRepository)
+			ILinkRepository linkRepository,
+            IUniqueLinkService uniqueLinkService)
 		{
-			_storageService = storageService;
-			_domainRepository = domainRepository;
-			_mediaServiceRepository = mediaServiceRepository;
-			_linkRepository = linkRepository;
+			this.storageService = storageService;
+			this.domainRepository = domainRepository;
+			this.mediaServiceRepository = mediaServiceRepository;
+			this.linkRepository = linkRepository;
+            this.uniqueLinkService = uniqueLinkService;
 		}
 
 
-		public LinkModel Execute(CreateLinkArgument argument)
+		public async Task<LinkModel> ExecuteAsync(CreateLinkArgument argument)
 		{
-			var domain = _domainRepository.GetDomain(argument.Link.DomainId);
+			var domain = await domainRepository.GetByIdAsync(argument.Link.DomainId);
 
 			var code = argument.Link.Code;
-			if (!String.IsNullOrEmpty(code))
+			if (!string.IsNullOrEmpty(code))
 			{
-				if (!LinkHelper.IsValidLinkCode(_storageService, domain.Name, argument.Link.Code))
+				if (!uniqueLinkService.IsValidLinkCode(domain.Name, argument.Link.Code))
 				{
 					throw new ArgumentException($"Shortlink {domain.Name}/{argument.Link.Code} is already in use.");
 				}
 			}
 			else
 			{
-				code = LinkHelper.GetUniqueLinkShortCode(_storageService, domain.Name);
+				code = uniqueLinkService.GetUniqueLinkShortCode(domain.Name);
 			}
 
-			Repository.Entities.Link dbLink;
-
-			switch (argument.Link.MediaType)
+            Models.StorageModel.Base.StorageModel storageModel;
+            switch (argument.Link.MediaType)
 			{
 				case MediaType.Music:
-					var uniqMediaServiceIds =
-						argument.MusicDestinations.SelectMany(x => x.Value.Select(d => d.MediaServiceId)).Distinct().ToList();
-					var mediaServices = _mediaServiceRepository.GetMediaServices().Where(x => uniqMediaServiceIds.Contains(x.Id)).ToList();
+					var uniqMediaServiceIds = argument.MusicDestinations.SelectMany(x => x.Value.Select(d => d.MediaServiceId)).Distinct();
+                    var mediaServices = await mediaServiceRepository.GetUniqueAsync(uniqMediaServiceIds);
 
-					var shortLink = LinkHelper.ShortLinkTemplate(domain.Name, code);
-					string generalLinkPath = LinkHelper.LinkGeneralFilenameTemplate(shortLink);
-
-					dbLink = _linkRepository.CreateLink(new Repository.Entities.Link()
-					{
-						Code = code,
-						Domain = domain,
-						DomainId = domain.Id,
-						Id = argument.Link.Id,
-						IsActive = argument.Link.IsActive,
-						MediaType = argument.Link.MediaType,
-						Title = argument.Link.Title,
-						Url = argument.Link.Url,
-						Artists = argument.Link.Artists?.Any() == true
-							? argument.Link.Artists.Select(x => new Artist()
-							{
-								Id = x.Id,
-								Name = x.Name,
-								Label = x.Label
-							}).ToList()
-							: null
-					});
-
-					_storageService.Save(generalLinkPath, new StorageModel()
-					{
-						Id = argument.Link.Id,
-						MediaType = argument.Link.MediaType,
-						Url = argument.Link.Url,
-						Title = argument.Link.Title,
-						Destinations = argument.MusicDestinations.ToDictionary(
-							md => md.Key,
-							md => md.Value.Where(d => mediaServices.Select(m => m.Id).Contains(d.MediaServiceId)).Select(d => new DestinationStorageModel()
-							{
-								MediaServiceId = d.MediaServiceId,
-								TrackingInfo = new TrackingStorageModel()
-								{
-									MediaServiceName = mediaServices.First(m => m.Id == d.MediaServiceId).Name,
-
-									Artist = d.TrackingInfo?.Artist,
-									Album = d.TrackingInfo?.Album,
-									SongTitle = d.TrackingInfo?.SongTitle,
-
-									Mobile = d.TrackingInfo?.Mobile,
-									Web = d.TrackingInfo?.Web,
-								}
-							}).ToList())
-					});
-
+                    storageModel = Mapper.Map<LinkModel, Models.StorageModel.Music.StorageModel>(argument.Link, o => o.AfterMap((link, storage) =>
+                    {
+                        storage.Destinations = argument.MusicDestinations.ToDictionary(
+                            md => md.Key,
+                            md => md.Value.Where(d => mediaServices.Select(m => m.Id).Contains(d.MediaServiceId))
+                                        .Select(d => Mapper.Map<Models.Link.Music.DestinationModel, Models.StorageModel.Music.DestinationStorageModel>(d, opt => opt.AfterMap((music, str) =>
+                                         {
+                                             str.TrackingInfo.MediaServiceName = mediaServices.First(m => m.Id == d.MediaServiceId).Name;
+                                         })))
+                                         .ToList());
+                    }));
 					break;
+
 				case MediaType.Ticket:
-
-					var shortLinkTicket = LinkHelper.ShortLinkTemplate(domain.Name, code);
-					string generalLinkPathTicket = LinkHelper.LinkGeneralFilenameTemplate(shortLinkTicket);
-
-					dbLink = _linkRepository.CreateLink(new Repository.Entities.Link()
-					{
-						Id = argument.Link.Id,
-						Code = code,
-						Domain = domain,
-						DomainId = domain.Id,
-						IsActive = true,
-						MediaType = argument.Link.MediaType,
-						Title = argument.Link.Title,
-						Url = argument.Link.Url,
-						Artists = argument.Link.Artists?.Any() == true
-							? argument.Link.Artists.Select(x => new Artist()
-							{
-								Id = x.Id,
-								Name = x.Name,
-								Label = x.Label
-							}).ToList()
-							: null
-					});
-
-					_storageService.Save(generalLinkPathTicket, new Models.StorageModel.Ticket.StorageModel()
-					{
-						Id = argument.Link.Id,
-						MediaType = argument.Link.MediaType,
-						Url = argument.Link.Url,
-						Title = argument.Link.Title,
-						Destinations = argument.TicketDestinations.ToDictionary(
-							md => md.Key,
-							md => md.Value.Select(d => new Models.StorageModel.Ticket.DestinationStorageModel()
-							{
-								ShowId = d.ShowId,
-								MediaServiceId = d.MediaServiceId,
-								Url = d.Url,
-								Date = d.Date,
-								Location = d.Location,
-								Venue = d.Venue
-							}).ToList())
-					});
+                    storageModel = Mapper.Map<LinkModel, Models.StorageModel.Ticket.StorageModel>(argument.Link, o => o.AfterMap((link, storage) =>
+                    {
+                        storage.Destinations = argument.TicketDestinations.ToDictionary(
+                            md => md.Key,
+                            md => md.Value.Select(Mapper.Map< Models.StorageModel.Ticket.DestinationStorageModel>).ToList());
+                    }));
 					break;
+
 				default:
 					throw new NotSupportedException($"Link type {argument.Link.MediaType} is not supported.");
 			}
+            
+            var shortLink = LinkHelper.GetShortLink(domain.Name, code);
+            var generalLinkPath = LinkHelper.GetLinkGeneralFilename(shortLink);
 
-			return new LinkModel()
-			{
-				Id = dbLink.Id,
-				Code = code,
-				DomainId = domain.Id,
-				IsActive = dbLink.IsActive,
-				MediaType = dbLink.MediaType,
-				Title = dbLink.Title,
-				Url = dbLink.Url,
-				Artists = dbLink.Artists?.Any() == true
-					? dbLink.Artists.Select(x => new ArtistModel()
-					{
-						Id = x.Id,
-						Name = x.Name,
-						Label = x.Label
-					}).ToList()
-					: null
-			};
+            try
+            {
+                await storageService.SaveAsync(generalLinkPath, storageModel);
+            }
+            catch (Exception ex)
+            {
+                // TODO: Normal logging like Serilog's Log.Error(ex, "...");
+                Debug.WriteLine(ex);
+
+                // No need to go further since we could not save the file on disk
+                throw;
+            }
+
+            var dbLink = Mapper.Map<Repository.Entities.Link>(argument.Link);
+            dbLink.MediaType = Mapper.Map<Repository.Entities.Enums.MediaType>(argument.Link.MediaType);
+            dbLink.IsActive = true;
+            dbLink.Id = Guid.NewGuid();
+            dbLink.UpdatedAt = DateTime.UtcNow;
+
+            try
+            {
+                dbLink = await linkRepository.CreateAsync(dbLink);
+            }
+            catch (Exception ex)
+            {
+                // TODO: Normal logging like Serilog's Log.Error(ex, "...");
+                Debug.WriteLine(ex);
+
+                // We need to delete the file since it is not valid as we have no db entity created
+                storageService.Delete(shortLink);
+                throw;
+            }
+
+            return Mapper.Map<LinkModel>(dbLink);
 		}
-	}
-
-	/// <summary>
-	/// Data required for link creation
-	/// </summary>
-	public class CreateLinkArgument
-	{
-		public LinkModel Link { get; set; }
-
-		public Dictionary<string, List<Models.Link.Music.DestinationModel>> MusicDestinations { get; set; }
-
-		public Dictionary<string, List<Models.Link.Ticket.DestinationModel>> TicketDestinations { get; set; }
 	}
 }

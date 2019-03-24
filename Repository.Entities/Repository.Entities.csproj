@@ -48,14 +48,20 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Artist.cs" />
-    <Compile Include="Context.cs" />
+    <Compile Include="Interfaces\IConcurrentEntity.cs" />
+    <Compile Include="LinksContext.cs" />
     <Compile Include="Domain.cs" />
     <Compile Include="Enums\MediaType.cs" />
+    <Compile Include="Interfaces\IEntity.cs" />
     <Compile Include="Link.cs" />
     <Compile Include="MediaService.cs" />
     <Compile Include="Migrations\201902270821463_Initial_Migration.cs" />
     <Compile Include="Migrations\201902270821463_Initial_Migration.Designer.cs">
       <DependentUpon>201902270821463_Initial_Migration.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201903232023598_Concurrency_Support_Added.cs" />
+    <Compile Include="Migrations\201903232023598_Concurrency_Support_Added.Designer.cs">
+      <DependentUpon>201903232023598_Concurrency_Support_Added.cs</DependentUpon>
     </Compile>
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -67,6 +73,9 @@
   <ItemGroup>
     <EmbeddedResource Include="Migrations\201902270821463_Initial_Migration.resx">
       <DependentUpon>201902270821463_Initial_Migration.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201903232023598_Concurrency_Support_Added.resx">
+      <DependentUpon>201903232023598_Concurrency_Support_Added.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

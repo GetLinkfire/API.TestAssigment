@@ -1,17 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using Repository.Entities.Enums;
+﻿using System.Collections.Generic;
 
 namespace Service.Models.StorageModel.Music
 {
-	public class StorageModel
+    public sealed class StorageModel : Base.StorageModel
 	{
-		public Guid Id { get; set; }
-		public string Title { get; set; }
-		public string Url { get; set; }
-		public MediaType MediaType { get; set; }
-
 		public TrackingStorageModel TrackingInfo { get; set; }
-		public Dictionary<string, List<DestinationStorageModel>> Destinations { get; set; }
-	}
+
+        public Dictionary<string, List<DestinationStorageModel>> Destinations { get; set; }
+    }
 }

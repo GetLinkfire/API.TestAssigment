@@ -1,13 +1,14 @@
 ﻿using System;
-using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations;
+using Repository.Entities.Interfaces;
 
 namespace Repository.Entities
 {
-	[Table("MediaServices")]
-	public class MediaService
-	{
-		public Guid Id { get; set; }
+    public class MediaService : IEntity<Guid>
+    {
+        public Guid Id { get; set; }
 
-		public string Name { get; set; }
+        [MaxLength(255)]
+        public string Name { get; set; }
 	}
 }

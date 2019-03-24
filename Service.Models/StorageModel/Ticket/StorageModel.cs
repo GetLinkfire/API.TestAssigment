@@ -1,16 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using Repository.Entities.Enums;
+﻿using System.Collections.Generic;
 
 namespace Service.Models.StorageModel.Ticket
 {
-	public class StorageModel
-	{
-		public Guid Id { get; set; }
-		public string Title { get; set; }
-		public string Url { get; set; }
-		public MediaType MediaType { get; set; }
-
-		public Dictionary<string, List<DestinationStorageModel>> Destinations { get; set; }
-	}
+    public sealed class StorageModel : Base.StorageModel
+    {
+        public Dictionary<string, List<DestinationStorageModel>> Destinations { get; set; }
+    }
 }

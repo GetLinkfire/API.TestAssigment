@@ -1,10 +1,7 @@
-﻿using System;
-
-namespace Service.Models.Link.Music
+﻿namespace Service.Models.Link.Music
 {
-	public class DestinationModel
-	{
-		public Guid MediaServiceId { get; set; }
+    public class DestinationModel : Base.DestinationModel
+    {
 		public TrackingModel TrackingInfo { get; set; }
 	}
 }

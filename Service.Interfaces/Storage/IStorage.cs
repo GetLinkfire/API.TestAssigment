@@ -1,12 +1,17 @@
 ﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Service.Interfaces.Storage
 {
 	public interface IStorage
 	{
-		T Get<T>(string filePath);
+        Task<string> GetAsync(string filePath);
 
-		void Save<T>(string filePath, T content);
+        Task<T> GetAsync<T>(string filePath);
+
+        Task SaveAsync(string filePath, string content);
+
+        Task SaveAsync<T>(string filePath, T content);
 
 		List<string> GetFileList(string directoryPath, string startedWith = null);
 

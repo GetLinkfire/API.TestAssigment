@@ -2,14 +2,17 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading.Tasks;
 using FizzWare.NBuilder;
 using NUnit.Framework;
 using Repository.Entities;
-using Repository.Entities.Enums;
 using Repository.Interfaces;
 using Rhino.Mocks;
+using Service.Interfaces;
 using Service.Interfaces.Storage;
 using Service.Link;
+using Service.Link.Arguments;
+using Service.Models.Enums;
 using Service.Models.Link;
 using Service.Models.Link.Music;
 using Service.Models.StorageModel.Music;
@@ -21,8 +24,9 @@ namespace Service.Tests.Link
 	public class UpdateLinkCommandTest
 	{
 		private IStorage _storageService;
+        private IUniqueLinkService _uniqueLinkService;
 
-		private ILinkRepository _linkRepository;
+        private ILinkRepository _linkRepository;
 		private IDomainRepository _domainRepository;
 		private IMediaServiceRepository _mediaServiceRepository;
 
@@ -36,8 +40,9 @@ namespace Service.Tests.Link
 			_mediaServiceRepository = MockRepository.GenerateMock<IMediaServiceRepository>();
 
 			_storageService = MockRepository.GenerateMock<IStorage>();
+            _uniqueLinkService = MockRepository.GenerateMock<IUniqueLinkService>();
 
-			_updateLinkCommand = new UpdateLinkCommand(_storageService, _domainRepository, _mediaServiceRepository, _linkRepository);
+            _updateLinkCommand = new UpdateLinkCommand(_storageService, _domainRepository, _mediaServiceRepository, _linkRepository, _uniqueLinkService);
 
 		}
 
@@ -51,7 +56,7 @@ namespace Service.Tests.Link
 		}
 
 		[Test]
-		public void Execute_SameCode_Music()
+		public async Task Execute_SameCode_Music()
 		{
 			var domainId = Guid.NewGuid();
 			var code = "test";
@@ -65,10 +70,10 @@ namespace Service.Tests.Link
 				.With(x => x.Code, code)
 				.With(x => x.Domain, domain)
 				.With(x => x.DomainId, domainId)
-				.With(x => x.MediaType, MediaType.Music)
+				.With(x => x.MediaType, Repository.Entities.Enums.MediaType.Music)
 				.Build();
 			var existStorageLink = Builder<StorageModel>.CreateNew()
-				.With(x => x.MediaType, existDbLink.MediaType)
+				.With(x => x.MediaType, (MediaType)existDbLink.MediaType)
 				.With(x => x.Id, existDbLink.Id)
 				.With(x => x.Title, existDbLink.Title)
 				.With(x => x.Url, existDbLink.Url)
@@ -94,7 +99,7 @@ namespace Service.Tests.Link
 				.With(x => x.Link, Builder<ExtendedLinkModel>.CreateNew()
 					.With(x => x.Code, existDbLink.Code)
 					.With(x => x.DomainId, existDbLink.DomainId)
-					.With(x => x.MediaType, existDbLink.MediaType)
+					.With(x => x.MediaType, (MediaType)existDbLink.MediaType)
 					.With(x => x.TicketDestinations, null)
 					.With(x => x.TrackingInfo, null)
 					.With(x => x.MusicDestinations, new Dictionary<string, List<DestinationModel>>()
@@ -114,11 +119,11 @@ namespace Service.Tests.Link
 					.Build())
 				.Build();
 
-			_linkRepository.Expect(x => x.GetLink(Arg<Guid>.Is.Equal(argument.Link.Id))).Return(existDbLink);
-			_domainRepository.Expect(x => x.GetDomain(Arg<Guid>.Is.Equal(domainId))).Return(domain);
+			_linkRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(argument.Link.Id))).Return(Task.FromResult(existDbLink));
+			_domainRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(domainId))).Return(Task.FromResult(domain));
 
 			_linkRepository.Expect(x =>
-				x.UpdateLink(Arg<Repository.Entities.Link>.Matches(entity =>
+				x.UpdateAsync(Arg<Repository.Entities.Link>.Matches(entity =>
 					entity.DomainId == existDbLink.DomainId
 					&& entity.IsActive
 					&& entity.MediaType == existDbLink.MediaType
@@ -130,18 +135,18 @@ namespace Service.Tests.Link
 					x.ReturnValue = (Repository.Entities.Link)x.Arguments[0];
 				});
 
-			_mediaServiceRepository.Expect(x => x.GetMediaServices()).Return(mediaServices.AsQueryable());
+			_mediaServiceRepository.Expect(x => x.GetUniqueAsync(Arg<IEnumerable<Guid>>.Is.Anything)).Return(Task.FromResult(mediaServices));
 
-			_storageService.Expect(x => x.Get<StorageModel>(Arg<string>.Matches(path => path.Equals($"{domain.Name}/{code}/general.json"))))
-				.Return(existStorageLink);
+			_storageService.Expect(x => x.GetAsync<StorageModel>(Arg<string>.Matches(path => path.Equals($"{domain.Name}/{code}/general.json"))))
+				.Return(Task.FromResult(existStorageLink));
 			_storageService.Expect(x =>
-				x.Save(Arg<string>.Matches(path => path.Equals($"{domain.Name}/{code}/general.json")),
+				x.SaveAsync(Arg<string>.Matches(path => path.Equals($"{domain.Name}/{code}/general.json")),
 					Arg<StorageModel>.Matches(st =>
 						st.Destinations.ContainsKey("all")
 						&& st.Destinations["all"].Count == mediaServices.Count
 						&& st.Destinations["all"].First().TrackingInfo.MediaServiceName == mediaServices.First().Name)));
 
-			var result = _updateLinkCommand.Execute(argument);
+			var result = await _updateLinkCommand.ExecuteAsync(argument);
 
 			Assert.IsTrue(result.IsActive);
 			Assert.AreEqual(domainId, result.DomainId);
@@ -160,7 +165,7 @@ namespace Service.Tests.Link
 		}
 
 		[Test]
-		public void Execute_NewCode_Music()
+		public async Task Execute_NewCode_Music()
 		{
 			var domainId = Guid.NewGuid();
 			var oldCode = "test";
@@ -175,10 +180,10 @@ namespace Service.Tests.Link
 				.With(x => x.Code, oldCode)
 				.With(x => x.Domain, domain)
 				.With(x => x.DomainId, domainId)
-				.With(x => x.MediaType, MediaType.Music)
+				.With(x => x.MediaType, Repository.Entities.Enums.MediaType.Music)
 				.Build();
 			var existStorageLink = Builder<StorageModel>.CreateNew()
-				.With(x => x.MediaType, existDbLink.MediaType)
+				.With(x => x.MediaType, (MediaType)existDbLink.MediaType)
 				.With(x => x.Id, existDbLink.Id)
 				.With(x => x.Title, existDbLink.Title)
 				.With(x => x.Url, existDbLink.Url)
@@ -204,7 +209,7 @@ namespace Service.Tests.Link
 				.With(x => x.Link, Builder<ExtendedLinkModel>.CreateNew()
 					.With(x => x.Code, newCode)
 					.With(x => x.DomainId, existDbLink.DomainId)
-					.With(x => x.MediaType, existDbLink.MediaType)
+					.With(x => x.MediaType, (MediaType)existDbLink.MediaType)
 					.With(x => x.TicketDestinations, null)
 					.With(x => x.TrackingInfo, Builder<TrackingModel>.CreateNew().Build())
 					.With(x => x.MusicDestinations, new Dictionary<string, List<DestinationModel>>()
@@ -224,11 +229,11 @@ namespace Service.Tests.Link
 					.Build())
 				.Build();
 
-			_linkRepository.Expect(x => x.GetLink(Arg<Guid>.Is.Equal(argument.Link.Id))).Return(existDbLink);
-			_domainRepository.Expect(x => x.GetDomain(Arg<Guid>.Is.Equal(domainId))).Return(domain);
+			_linkRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(argument.Link.Id))).Return(Task.FromResult(existDbLink));
+			_domainRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(domainId))).Return(Task.FromResult(domain));
 
 			_linkRepository.Expect(x =>
-				x.UpdateLink(Arg<Repository.Entities.Link>.Matches(entity =>
+				x.UpdateAsync(Arg<Repository.Entities.Link>.Matches(entity =>
 					entity.DomainId == existDbLink.DomainId
 					&& entity.IsActive
 					&& entity.MediaType == existDbLink.MediaType
@@ -241,19 +246,19 @@ namespace Service.Tests.Link
 				});
 			_storageService.Expect(x => x.GetFileList(Arg<string>.Is.Equal(domain.Name), Arg<string>.Is.Equal("test_updat"))).Return(Enumerable.Empty<string>().ToList());
 
-			_mediaServiceRepository.Expect(x => x.GetMediaServices()).Return(mediaServices.AsQueryable());
+			_mediaServiceRepository.Expect(x => x.GetUniqueAsync(Arg<IEnumerable<Guid>>.Is.Anything)).Return(Task.FromResult(mediaServices));
 
-			_storageService.Expect(x => x.Get<StorageModel>(Arg<string>.Matches(path => path.Equals($"{domain.Name}/{oldCode}/general.json"))))
-				.Return(existStorageLink);
+			_storageService.Expect(x => x.GetAsync<StorageModel>(Arg<string>.Matches(path => path.Equals($"{domain.Name}/{oldCode}/general.json"))))
+				.Return(Task.FromResult(existStorageLink));
 			_storageService.Expect(x =>
-				x.Save(Arg<string>.Is.Equal($"{domain.Name}/{newCode}/general.json"),
+				x.SaveAsync(Arg<string>.Is.Equal($"{domain.Name}/{newCode}/general.json"),
 					Arg<StorageModel>.Matches(st =>
 						st.Destinations.ContainsKey("all")
 						&& st.Destinations["all"].Count == mediaServices.Count
 						&& st.Destinations["all"].First().TrackingInfo.MediaServiceName == mediaServices.First().Name)));
 			_storageService.Expect(x => x.Delete(Arg<string>.Is.Equal($"{domain.Name}/{oldCode}")));
 
-			var result = _updateLinkCommand.Execute(argument);
+			var result = await _updateLinkCommand.ExecuteAsync(argument);
 
 			Assert.IsTrue(result.IsActive);
 			Assert.AreEqual(domainId, result.DomainId);
@@ -273,7 +278,7 @@ namespace Service.Tests.Link
 		}
 
 		[Test]
-		public void Execute_NewCode_Ticket()
+		public async Task Execute_NewCode_Ticket()
 		{
 			var domainId = Guid.NewGuid();
 			var oldCode = "test";
@@ -287,10 +292,10 @@ namespace Service.Tests.Link
 				.With(x => x.Code, oldCode)
 				.With(x => x.Domain, domain)
 				.With(x => x.DomainId, domainId)
-				.With(x => x.MediaType, MediaType.Ticket)
+				.With(x => x.MediaType, Repository.Entities.Enums.MediaType.Ticket)
 				.Build();
 			var existStorageLink = Builder<Models.StorageModel.Ticket.StorageModel>.CreateNew()
-				.With(x => x.MediaType, existDbLink.MediaType)
+				.With(x => x.MediaType, (MediaType)existDbLink.MediaType)
 				.With(x => x.Id, existDbLink.Id)
 				.With(x => x.Title, existDbLink.Title)
 				.With(x => x.Url, existDbLink.Url)
@@ -315,7 +320,7 @@ namespace Service.Tests.Link
 				.With(x => x.Link, Builder<ExtendedLinkModel>.CreateNew()
 					.With(x => x.Code, newCode)
 					.With(x => x.DomainId, existDbLink.DomainId)
-					.With(x => x.MediaType, existDbLink.MediaType)
+					.With(x => x.MediaType, (MediaType)existDbLink.MediaType)
 					.With(x => x.TicketDestinations, new Dictionary<string, List<Models.Link.Ticket.DestinationModel>>()
 					{
 						{
@@ -339,11 +344,11 @@ namespace Service.Tests.Link
 					.Build())
 				.Build();
 
-			_linkRepository.Expect(x => x.GetLink(Arg<Guid>.Is.Equal(argument.Link.Id))).Return(existDbLink);
-			_domainRepository.Expect(x => x.GetDomain(Arg<Guid>.Is.Equal(domainId))).Return(domain);
+			_linkRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(argument.Link.Id))).Return(Task.FromResult(existDbLink));
+			_domainRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(domainId))).Return(Task.FromResult(domain));
 
 			_linkRepository.Expect(x =>
-				x.UpdateLink(Arg<Repository.Entities.Link>.Matches(entity =>
+				x.UpdateAsync(Arg<Repository.Entities.Link>.Matches(entity =>
 					entity.DomainId == existDbLink.DomainId
 					&& entity.IsActive
 					&& entity.MediaType == existDbLink.MediaType
@@ -357,10 +362,10 @@ namespace Service.Tests.Link
 			_storageService.Expect(x => x.GetFileList(Arg<string>.Is.Equal(domain.Name), Arg<string>.Is.Equal("test_updat"))).Return(Enumerable.Empty<string>().ToList());
 
 
-			_storageService.Expect(x => x.Get<Models.StorageModel.Ticket.StorageModel>(Arg<string>.Matches(path => path.Equals($"{domain.Name}/{oldCode}/general.json"))))
-				.Return(existStorageLink);
+			_storageService.Expect(x => x.GetAsync<Models.StorageModel.Ticket.StorageModel>(Arg<string>.Matches(path => path.Equals($"{domain.Name}/{oldCode}/general.json"))))
+				.Return(Task.FromResult(existStorageLink));
 			_storageService.Expect(x =>
-				x.Save(Arg<string>.Is.Equal($"{domain.Name}/{newCode}/general.json"),
+				x.SaveAsync(Arg<string>.Is.Equal($"{domain.Name}/{newCode}/general.json"),
 					Arg<Models.StorageModel.Ticket.StorageModel>.Matches(st =>
 						st.Destinations.ContainsKey("all")
 						&& st.Destinations["all"].Count == destinationInAllCount
@@ -369,7 +374,7 @@ namespace Service.Tests.Link
 						&& !st.Destinations.ContainsKey("se"))));
 			_storageService.Expect(x => x.Delete(Arg<string>.Is.Equal($"{domain.Name}/{oldCode}")));
 
-			var result = _updateLinkCommand.Execute(argument);
+			var result = await _updateLinkCommand.ExecuteAsync(argument);
 
 			Assert.IsTrue(result.IsActive);
 			Assert.AreEqual(domainId, result.DomainId);
@@ -392,12 +397,12 @@ namespace Service.Tests.Link
 					.Build())
 				.Build();
 
-			_linkRepository.Expect(x => x.GetLink(Arg<Guid>.Is.Equal(argument.Link.Id)))
+			_linkRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(argument.Link.Id)))
 				.WhenCalled(x => throw new Exception($"Link {x.Arguments[0]} not found."));
 
-			Assert.Throws<Exception>(() =>
+			Assert.ThrowsAsync<Exception>(async () =>
 			{
-				_updateLinkCommand.Execute(argument);
+				await _updateLinkCommand.ExecuteAsync(argument);
 			});
 		}
 
@@ -406,7 +411,7 @@ namespace Service.Tests.Link
 		{
 			var existDbLink = Builder<Repository.Entities.Link>.CreateNew()
 				.With(x => x.IsActive, true)
-				.With(x => x.MediaType, MediaType.Music)
+				.With(x => x.MediaType, Repository.Entities.Enums.MediaType.Music)
 				.Build();
 
 			var argument = Builder<UpdateLinkArgument>.CreateNew()
@@ -415,11 +420,11 @@ namespace Service.Tests.Link
 					.Build())
 				.Build();
 
-			_linkRepository.Expect(x => x.GetLink(Arg<Guid>.Is.Equal(argument.Link.Id))).Return(existDbLink);
+			_linkRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(argument.Link.Id))).Return(Task.FromResult(existDbLink));
 
-			Assert.Throws<NotSupportedException>(() =>
+			Assert.ThrowsAsync<NotSupportedException>(async () =>
 			{
-				_updateLinkCommand.Execute(argument);
+				await _updateLinkCommand.ExecuteAsync(argument);
 			});
 		}
 
@@ -428,7 +433,7 @@ namespace Service.Tests.Link
 		{
 			var existDbLink = Builder<Repository.Entities.Link>.CreateNew()
 				.With(x => x.IsActive, true)
-				.With(x => x.MediaType, MediaType.Music)
+				.With(x => x.MediaType, Repository.Entities.Enums.MediaType.Music)
 				.Build();
 
 			var argument = Builder<UpdateLinkArgument>.CreateNew()
@@ -437,15 +442,15 @@ namespace Service.Tests.Link
 					.Build())
 				.Build();
 
-			_linkRepository.Expect(x => x.GetLink(Arg<Guid>.Is.Equal(argument.Link.Id))).Return(existDbLink);
+			_linkRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(argument.Link.Id))).Return(Task.FromResult(existDbLink));
 
-			_domainRepository.Expect(x => x.GetDomain(Arg<Guid>.Is.Equal(argument.Link.DomainId)))
+			_domainRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(argument.Link.DomainId)))
 				.WhenCalled(x => throw new Exception($"Domain {x.Arguments[0]} not found."));
 
 
-			Assert.Throws<Exception>(() =>
+			Assert.ThrowsAsync<Exception>(async () =>
 			{
-				_updateLinkCommand.Execute(argument);
+				await _updateLinkCommand.ExecuteAsync(argument);
 			});
 		}
 
@@ -459,7 +464,7 @@ namespace Service.Tests.Link
 
 			var existDbLink = Builder<Repository.Entities.Link>.CreateNew()
 				.With(x => x.IsActive, true)
-				.With(x => x.MediaType, MediaType.Music)
+				.With(x => x.MediaType, Repository.Entities.Enums.MediaType.Music)
 				.With(x => x.Code, "oldcode")
 				.With(x => x.DomainId, domainId)
 				.With(x => x.Domain, domain)
@@ -473,13 +478,13 @@ namespace Service.Tests.Link
 					.Build())
 				.Build();
 
-			_linkRepository.Expect(x => x.GetLink(Arg<Guid>.Is.Equal(argument.Link.Id))).Return(existDbLink);
-			_domainRepository.Expect(x => x.GetDomain(Arg<Guid>.Is.Equal(argument.Link.DomainId))).Return(domain);
+			_linkRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(argument.Link.Id))).Return(Task.FromResult(existDbLink));
+			_domainRepository.Expect(x => x.GetByIdAsync(Arg<Guid>.Is.Equal(argument.Link.DomainId))).Return(Task.FromResult(domain));
 
 			_storageService.Expect(x => x.GetFileList(Arg<string>.Is.Equal($"{domain.Name}"), Arg<string>.Is.Equal("code")))
 				.Return(new List<string>() { $"{domain.Name}/code" });
 
-			Assert.Throws<ArgumentException>(() => { _updateLinkCommand.Execute(argument); });
+			Assert.ThrowsAsync<ArgumentException>(async () => { await _updateLinkCommand.ExecuteAsync(argument); });
 		}
 	}
 }

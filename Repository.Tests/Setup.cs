@@ -9,7 +9,7 @@ namespace Repository.Tests
 		[OneTimeTearDown]
 		public void RunAfterAnyTests()
 		{
-			using (var context = new Context())
+			using (var context = new LinksContext())
 			{
 				context.Database.Delete();
 			}

@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using FizzWare.NBuilder;
 using Newtonsoft.Json;
 using NUnit.Framework;
@@ -36,7 +37,7 @@ namespace Service.Tests.Storage
 		}
 
 		[Test]
-		public void Get()
+		public async Task Get()
 		{
 			var content = Builder<TestObject>.CreateNew()
 				.With(x => x.Id, Guid.NewGuid())
@@ -48,7 +49,7 @@ namespace Service.Tests.Storage
 			File.WriteAllText(absolutePath, JsonConvert.SerializeObject(content));
 
 			IStorage storageService = new StorageService();
-			var fromFile = storageService.Get<TestObject>(path);
+			var fromFile = await storageService.GetAsync<TestObject>(path);
 
 			Assert.AreEqual(content.Id, fromFile.Id);
 			Assert.AreEqual(content.Name, fromFile.Name);
@@ -60,7 +61,7 @@ namespace Service.Tests.Storage
 		{
 			var path = $"unittest/notExists/general.json";
 			IStorage storageService = new StorageService();
-			Assert.Throws<DirectoryNotFoundException>(() => { storageService.Get<TestObject>(path); });
+			Assert.Throws<DirectoryNotFoundException>(() => { storageService.GetAsync<TestObject>(path); });
 		}
 
 		[Test]
@@ -73,7 +74,7 @@ namespace Service.Tests.Storage
 			File.WriteAllText(absolutePath, "");
 
 			IStorage storageService = new StorageService();
-			Assert.Throws<Exception>(() => { storageService.Get<TestObject>(path); });
+			Assert.Throws<Exception>(() => { storageService.GetAsync<TestObject>(path); });
 		}
 
 		[Test]
@@ -85,7 +86,7 @@ namespace Service.Tests.Storage
 			var path = $"unittest/{content.Id}/general.json";
 
 			IStorage storageService = new StorageService();
-			storageService.Save(path, content);
+			storageService.SaveAsync(path, content);
 
 			var absolutePath = Path.Combine(SolutionFolder, "data", path);
 			var text = File.ReadAllText(absolutePath);

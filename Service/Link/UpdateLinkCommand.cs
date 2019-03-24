@@ -1,170 +1,103 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Repository.Entities;
-using Repository.Entities.Enums;
+using System.Threading.Tasks;
+using AutoMapper;
 using Repository.Interfaces;
+using Service.Helpers;
+using Service.Interfaces;
 using Service.Interfaces.Commands;
 using Service.Interfaces.Storage;
-using Service.Models;
+using Service.Link.Arguments;
 using Service.Models.Link;
-using Service.Models.StorageModel.Music;
-using Service.Models.StorageModel.Ticket;
 
+using MediaType = Service.Models.Enums.MediaType;
 
 namespace Service.Link
 {
-	public class UpdateLinkCommand : ICommand<ExtendedLinkModel, UpdateLinkArgument>
+    public class UpdateLinkCommand : ICommand<ExtendedLinkModel, UpdateLinkArgument>
 	{
-		private readonly IStorage _storageService;
-		private readonly IDomainRepository _domainRepository;
-		private readonly IMediaServiceRepository _mediaServiceRepository;
-		private readonly ILinkRepository _linkRepository;
+		private readonly IStorage storageService;
+		private readonly IDomainRepository domainRepository;
+		private readonly IMediaServiceRepository mediaServiceRepository;
+		private readonly ILinkRepository linkRepository;
+        private readonly IUniqueLinkService uniqueLinkService;
 
-		public UpdateLinkCommand(
+        public UpdateLinkCommand(
 			IStorage storageService,
 			IDomainRepository domainRepository,
 			IMediaServiceRepository mediaServiceRepository,
-			ILinkRepository linkRepository)
+			ILinkRepository linkRepository,
+            IUniqueLinkService uniqueLinkService)
 		{
-			_storageService = storageService;
-			_domainRepository = domainRepository;
-			_mediaServiceRepository = mediaServiceRepository;
-			_linkRepository = linkRepository;
-		}
+			this.storageService = storageService;
+			this.domainRepository = domainRepository;
+			this.mediaServiceRepository = mediaServiceRepository;
+			this.linkRepository = linkRepository;
+            this.uniqueLinkService = uniqueLinkService;
+        }
 
-		public ExtendedLinkModel Execute(UpdateLinkArgument argument)
+		public async Task<ExtendedLinkModel> ExecuteAsync(UpdateLinkArgument argument)
 		{
-			var dbLink = _linkRepository.GetLink(argument.Link.Id);
+			var dbLink = await linkRepository.GetByIdAsync(argument.Link.Id);
 
-			if (dbLink.MediaType != argument.Link.MediaType)
-			{
-				throw new NotSupportedException("Link media type update is not supported.");
-			}
-
-			var domain = _domainRepository.GetDomain(argument.Link.DomainId);
+			var domain = await domainRepository.GetByIdAsync(argument.Link.DomainId);
 			string oldShortLink = null;
 
 			if (dbLink.DomainId != argument.Link.DomainId ||
 				!dbLink.Code.Equals(argument.Link.Code, StringComparison.InvariantCultureIgnoreCase))
 			{
-				oldShortLink = LinkHelper.ShortLinkTemplate(dbLink.Domain.Name, dbLink.Code);
-				if (!LinkHelper.IsValidLinkCode(_storageService, domain.Name, argument.Link.Code))
+				oldShortLink = LinkHelper.GetShortLink(dbLink.Domain.Name, dbLink.Code);
+				if (!uniqueLinkService.IsValidLinkCode(domain.Name, argument.Link.Code))
 				{
 					throw new ArgumentException($"Shortlink {domain.Name}/{argument.Link.Code} is already in use.");
 				}
 			}
 
-			dbLink.Title = argument.Link.Title;
+            Mapper.Map(argument.Link, dbLink);
 			dbLink.Domain = domain;
-			dbLink.Code = argument.Link.Code;
-			dbLink.Url = argument.Link.Url;
-			dbLink.Artists = argument.Link.Artists?.Select(x => new Artist()
-			{
-				Id = x.Id,
-				Name = x.Name,
-				Label = x.Label
-			}).ToList();
+            dbLink.UpdatedAt = DateTime.UtcNow;
 
-			dbLink = _linkRepository.UpdateLink(dbLink);
-			var result = new ExtendedLinkModel()
-			{
-				Id = dbLink.Id,
-				Code = dbLink.Code,
-				DomainId = domain.Id,
-				IsActive = dbLink.IsActive,
-				MediaType = dbLink.MediaType,
-				Title = dbLink.Title,
-				Url = dbLink.Url,
-				Artists = dbLink.Artists?.Select(x => new ArtistModel()
-				{
-					Id = x.Id,
-					Name = x.Name,
-					Label = x.Label
-				}).ToList()
-			};
+            dbLink = await linkRepository.UpdateAsync(dbLink);
+            var result = Mapper.Map<ExtendedLinkModel>(dbLink);
 
-			var shortLink = LinkHelper.ShortLinkTemplate(domain.Name, argument.Link.Code);
-			string generalLinkPathToRead = LinkHelper.LinkGeneralFilenameTemplate(oldShortLink ?? shortLink);
-			string generalLinkPathToSave = LinkHelper.LinkGeneralFilenameTemplate(shortLink);
+			var shortLink = LinkHelper.GetShortLink(domain.Name, argument.Link.Code);
+			var generalLinkPathToRead = LinkHelper.GetLinkGeneralFilename(oldShortLink ?? shortLink);
+			var generalLinkPathToSave = LinkHelper.GetLinkGeneralFilename(shortLink);
 
-			switch (argument.Link.MediaType)
+			switch (result.MediaType)
 			{
 				case MediaType.Music:
-					var uniqMediaServiceIds =
-						argument.Link.MusicDestinations.SelectMany(x => x.Value.Select(d => d.MediaServiceId)).Distinct().ToList();
-					var mediaServices = _mediaServiceRepository.GetMediaServices().Where(x => uniqMediaServiceIds.Contains(x.Id)).ToList();
+                    var uniqMediaServiceIds = argument.Link.MusicDestinations.SelectMany(x => x.Value.Select(d => d.MediaServiceId)).Distinct();
+                    var mediaServices = await mediaServiceRepository.GetUniqueAsync(uniqMediaServiceIds);
 
-					var musicStorage = _storageService.Get<Models.StorageModel.Music.StorageModel>(generalLinkPathToRead);
+					var musicStorage = await storageService.GetAsync<Models.StorageModel.Music.StorageModel>(generalLinkPathToRead);
 
-					musicStorage.Title = argument.Link.Title;
-					musicStorage.Url = argument.Link.Url;
+                    Mapper.Map(argument.Link, musicStorage, o => o.AfterMap((link, storage) =>
+                    {
+                        storage.Destinations = link.MusicDestinations.ToDictionary(
+                            md => md.Key,
+                            md => md.Value.Where(d => mediaServices.Select(m => m.Id).Contains(d.MediaServiceId))
+                                        .Select(d => Mapper.Map<Models.Link.Music.DestinationModel, Models.StorageModel.Music.DestinationStorageModel>(d, opt => opt.AfterMap((music, str) =>
+                                        {
+                                            str.TrackingInfo.MediaServiceName = mediaServices.First(m => m.Id == d.MediaServiceId).Name;
+                                        })))
+                                         .ToList());
+                    }));
 
-					musicStorage.TrackingInfo = argument.Link.TrackingInfo == null
-						? null
-						: new TrackingStorageModel()
-						{
-							Artist = argument.Link.TrackingInfo.Artist,
-							Album = argument.Link.TrackingInfo.Album,
-							SongTitle = argument.Link.TrackingInfo.SongTitle,
-							Mobile = argument.Link.TrackingInfo.Mobile,
-							Web = argument.Link.TrackingInfo.Web
-						};
+                    await storageService.SaveAsync(generalLinkPathToSave, musicStorage);
 
-					musicStorage.Destinations = argument.Link.MusicDestinations?.ToDictionary(
-						md => md.Key,
-						md => md.Value.Where(d => mediaServices.Select(m => m.Id).Contains(d.MediaServiceId)).Select(d =>
-							new Models.StorageModel.Music.DestinationStorageModel()
-							{
-								MediaServiceId = d.MediaServiceId,
-								TrackingInfo = new TrackingStorageModel()
-								{
-									MediaServiceName = mediaServices.First(m => m.Id == d.MediaServiceId).Name,
-
-									Artist = d.TrackingInfo?.Artist,
-									Album = d.TrackingInfo?.Album,
-									SongTitle = d.TrackingInfo?.SongTitle,
-
-									Mobile = d.TrackingInfo?.Mobile,
-									Web = d.TrackingInfo?.Web,
-								}
-							}).ToList());
-
-					_storageService.Save(generalLinkPathToSave, musicStorage);
-
-					result.TrackingInfo = musicStorage.TrackingInfo != null
-						? new Models.Link.Music.TrackingModel()
-						{
-							Artist = musicStorage.TrackingInfo.Artist,
-							SongTitle = musicStorage.TrackingInfo.SongTitle,
-							Album = musicStorage.TrackingInfo.Album,
-
-							Mobile = musicStorage.TrackingInfo.Mobile,
-							Web = musicStorage.TrackingInfo.Web
-						}
-						: null;
+                    result.TrackingInfo = Mapper.Map<Models.Link.Music.TrackingModel>(musicStorage.TrackingInfo);
 
 					result.MusicDestinations =
-						musicStorage.Destinations?.ToDictionary(x => x.Key,
-							x => x.Value.Select(d => new Models.Link.Music.DestinationModel()
-							{
-								MediaServiceId = d.MediaServiceId,
-								TrackingInfo = d.TrackingInfo != null
-									? new Models.Link.Music.TrackingModel()
-									{
-										Artist = d.TrackingInfo.Artist,
-										SongTitle = d.TrackingInfo.SongTitle,
-										Album = d.TrackingInfo.Album,
-
-										Mobile = d.TrackingInfo.Mobile,
-										Web = d.TrackingInfo.Web
-									}
-									: null
-							}).ToList());
+						musicStorage.Destinations?.ToDictionary(
+                            x => x.Key,
+							x => x.Value.Select(Mapper.Map< Models.Link.Music.DestinationModel>).ToList());
 
 					break;
+
 				case MediaType.Ticket:
-					var ticketStorage = _storageService.Get<Models.StorageModel.Ticket.StorageModel>(generalLinkPathToRead);
+					var ticketStorage = await storageService.GetAsync<Models.StorageModel.Ticket.StorageModel>(generalLinkPathToRead);
 
 					ticketStorage.Title = argument.Link.Title;
 					ticketStorage.Url = argument.Link.Url;
@@ -177,77 +110,52 @@ namespace Service.Link
 							x.Key.Equals(existedIsoCode, StringComparison.InvariantCultureIgnoreCase)))
 						{
 							keysToRemove.Add(existedIsoCode);
-
 						}
 					}
+
 					foreach (var key in keysToRemove)
 					{
 						ticketStorage.Destinations.Remove(key);
 					}
+
 					foreach (var ticketDestination in argument.Link.TicketDestinations)
 					{
-						if (!ticketStorage.Destinations.Any(md =>
-							md.Key.Equals(ticketDestination.Key, StringComparison.InvariantCultureIgnoreCase)))
-						{
-							ticketStorage.Destinations.Add(ticketDestination.Key, ticketDestination.Value.Select(v => new Models.StorageModel.Ticket.DestinationStorageModel()
-							{
-								ShowId = v.ShowId,
-								MediaServiceId = v.MediaServiceId,
-								Url = v.Url,
-								Date = v.Date,
-								Venue = v.Venue,
-								Location = v.Location
-							}).ToList());
-						}
-						else
-						{
-							var existedIsoCode = ticketStorage.Destinations
-								.Where(x => x.Key.Equals(ticketDestination.Key, StringComparison.InvariantCultureIgnoreCase))
-								.Select(x => x.Key).First();
-							var existedExternalIds = ticketStorage.Destinations[existedIsoCode].ToDictionary(x => x.ShowId, x => x.ExternalId);
+                        if (!ticketStorage.Destinations.Any(md => md.Key.Equals(ticketDestination.Key, StringComparison.InvariantCultureIgnoreCase)))
+                        {
+                            ticketStorage.Destinations.Add(ticketDestination.Key, ticketDestination.Value.Select(Mapper.Map<Models.StorageModel.Ticket.DestinationStorageModel>).ToList());
+                        }
+                        else
+                        {
+                            var existedIsoCode = ticketStorage.Destinations
+                                .Where(x => x.Key.Equals(ticketDestination.Key, StringComparison.InvariantCultureIgnoreCase))
+                                .Select(x => x.Key).First();
+                            var existedExternalIds = ticketStorage.Destinations[existedIsoCode].ToDictionary(x => x.ShowId, x => x.ExternalId);
 
-							ticketStorage.Destinations[existedIsoCode] = ticketDestination.Value.Select(v =>
-								new Models.StorageModel.Ticket.DestinationStorageModel()
-								{
-									ShowId = v.ShowId,
-									MediaServiceId = v.MediaServiceId,
-									Url = v.Url,
-									Date = v.Date,
-									Venue = v.Venue,
-									Location = v.Location,
-									ExternalId = existedExternalIds.ContainsKey(v.ShowId) ? existedExternalIds[v.ShowId] : null
-								}).ToList();
-						}
+                            ticketStorage.Destinations[existedIsoCode] = ticketDestination.Value
+                                .Select(v => Mapper.Map<Models.Link.Ticket.DestinationModel, Models.StorageModel.Ticket.DestinationStorageModel>(v, o => o.AfterMap((src, target) =>
+                               {
+                                   target.ExternalId = existedExternalIds.ContainsKey(v.ShowId) ? existedExternalIds[v.ShowId] : null;
+                               })))
+                                .ToList();
+                        }
 					}
 
-					_storageService.Save(generalLinkPathToSave, ticketStorage);
+                    await storageService.SaveAsync(generalLinkPathToSave, ticketStorage);
 
-					result.TicketDestinations =
-						ticketStorage.Destinations?.ToDictionary(x => x.Key,
-							x => x.Value.Select(d => new Models.Link.Ticket.DestinationModel()
-							{
-								MediaServiceId = d.MediaServiceId,
-								Url = d.Url,
-								ShowId = d.ShowId,
-								Venue = d.Venue,
-								Date = d.Date,
-								Location = d.Location
-							}).ToList());
+                    result.TicketDestinations =
+                        ticketStorage.Destinations?.ToDictionary(x => x.Key,
+                            x => x.Value.Select(Mapper.Map<Models.Link.Ticket.DestinationModel>).ToList());
 					break;
 				default:
 					throw new NotSupportedException($"Link type {argument.Link.MediaType} is not supported.");
 			}
 
-			if (oldShortLink != null)
-				_storageService.Delete(oldShortLink);
+            if (oldShortLink != null)
+            {
+                storageService.Delete(oldShortLink);
+            }
 
 			return result;
-
 		}
-	}
-
-	public class UpdateLinkArgument
-	{
-		public ExtendedLinkModel Link { get; set; }
-	}
+	}	
 }

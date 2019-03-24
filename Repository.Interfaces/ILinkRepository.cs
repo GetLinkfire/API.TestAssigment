@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Repository.Entities;
 
 namespace Repository.Interfaces
@@ -11,28 +12,28 @@ namespace Repository.Interfaces
 		/// </summary>
 		/// <param name="linkId"></param>
 		/// <returns></returns>
-		Link GetLink(Guid linkId);
+		Task<Link> GetByIdAsync(Guid linkId);
 
 		/// <summary>
 		/// Create link
 		/// </summary>
 		/// <param name="link"></param>
 		/// <returns></returns>
-		Link CreateLink(Link link);
+		Task<Link> CreateAsync(Link link);
 
 		/// <summary>
 		/// Update existing link
 		/// </summary>
 		/// <param name="link"></param>
 		/// <returns></returns>
-		Link UpdateLink(Link link);
-		
-		/// <summary>
-		/// Delete link logicaly (set IsActive to false)
-		/// <exception cref="NotFoundException">when link does not exists in db.</exception>
-		/// <exception cref="IllegalArgumentException">when link is not active already.</exception>
-		/// </summary>
-		/// <param name="linkId"></param>
-		Link DeleteLink(Guid linkId);
+		Task<Link> UpdateAsync(Link link);
+
+        /// <summary>
+        /// Delete link logicaly (set IsActive to false)
+        /// <exception cref="NotFoundException">when link does not exists in db.</exception>
+        /// <exception cref="IllegalArgumentException">when link is not active already.</exception>
+        /// </summary>
+        /// <param name="id"></param>
+        Task<Link> DeleteAsync(Guid id);
 	}
 }

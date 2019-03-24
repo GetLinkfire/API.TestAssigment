@@ -40,7 +40,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Commands\ICommand.cs" />
+    <Compile Include="Commands\ICommand`1.cs" />
+    <Compile Include="Commands\ICommand`2.cs" />
+    <Compile Include="IUniqueLinkService.cs" />
     <Compile Include="Storage\IStorage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
