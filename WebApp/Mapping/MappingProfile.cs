@@ -28,15 +28,19 @@ namespace WebApp.Mapping
 				.ForMember(x => x.IsoCode, opt => opt.Ignore());
 
             CreateMap<UpdateLinkDto, LinkModel>()
-               .ForMember(x => x.Id, opt => opt.Ignore());
+                .ForMember(x => x.Id, opt => opt.Ignore())
+                .ForMember(x => x.IsActive, opt => opt.Ignore())
+                .ForMember(x => x.MediaType, opt => opt.Ignore());
 
             CreateMap<UpdateLinkDto, ExtendedLinkModel>()
                 .IncludeBase<UpdateLinkDto, LinkModel>()
                 .ForMember(x => x.MusicDestinations, opt => opt.Ignore())
-                .ForMember(x => x.TicketDestinations, opt => opt.Ignore());
+                .ForMember(x => x.TicketDestinations, opt => opt.Ignore())
+                .ForMember(x => x.TrackingInfo, opt => opt.Ignore());
 
             CreateMap<CreateLinkDto, LinkModel>()
-                .IncludeBase<UpdateLinkDto, LinkModel>();
+                .IncludeBase<UpdateLinkDto, LinkModel>()
+                .ForMember(x => x.MediaType, opt => opt.MapFrom(x => x.MediaType));
 
             CreateMap<LinkDto, LinkModel>()
                 .ReverseMap();

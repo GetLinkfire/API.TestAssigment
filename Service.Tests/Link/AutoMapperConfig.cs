@@ -10,7 +10,7 @@ namespace Service.Tests.Link
 
             Mapper.Initialize(cfg =>
             {
-                cfg.AddProfile<Mapping.MappingProfile>();
+                cfg.AddProfile<Service.Mapping.MappingProfile>();
             });
         }
     }

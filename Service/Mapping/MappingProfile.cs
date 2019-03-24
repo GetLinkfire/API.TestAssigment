@@ -13,9 +13,10 @@ namespace Service.Mapping
                 .ReverseMap();
 
             CreateMap<ArtistModel, Artist>()
-                .ForMember(dest => dest.Id, exp => exp.UseDestinationValue())
+                .ForMember(dest => dest.Id, exp => exp.Ignore())
                 .ForMember(dest => dest.Name, exp => exp.MapFrom(src => src.Name.Trim()))
-                .ForMember(dest => dest.Label, exp => exp.MapFrom(src => src.Label.Trim()));
+                .ForMember(dest => dest.Label, exp => exp.MapFrom(src => src.Label.Trim()))
+                .ForMember(dest => dest.Links, exp => exp.Ignore());
 
             CreateMap<LinkModel, Repository.Entities.Link>()
                 .ForMember(dest => dest.RowVersion, exp => exp.Ignore())
@@ -28,11 +29,16 @@ namespace Service.Mapping
 
             CreateMap<Repository.Entities.Link, ExtendedLinkModel>()
                 .IncludeBase<Repository.Entities.Link, LinkModel>()
+                .ForMember(dest => dest.TrackingInfo, exp => exp.Ignore())
+                .ForMember(dest => dest.MusicDestinations, exp => exp.Ignore())
+                .ForMember(dest => dest.TicketDestinations, exp => exp.Ignore())
                 .ReverseMap();
 
             CreateMap<LinkModel, Models.StorageModel.Base.StorageModel>();
             CreateMap<LinkModel, Models.StorageModel.Music.StorageModel>()
-                .IncludeBase<LinkModel, Models.StorageModel.Base.StorageModel>();
+                .IncludeBase<LinkModel, Models.StorageModel.Base.StorageModel>()
+                .ForMember(dest => dest.TrackingInfo, exp => exp.Ignore())
+                .ForMember(dest => dest.Destinations, exp => exp.Ignore());
 
             CreateMap<ExtendedLinkModel, Models.StorageModel.Music.StorageModel>()
                 .IncludeBase<LinkModel, Models.StorageModel.Base.StorageModel>()
@@ -44,7 +50,8 @@ namespace Service.Mapping
                 .ForMember(dest => dest.Destinations, exp => exp.Ignore());
 
             CreateMap<ExtendedLinkModel, Models.StorageModel.Ticket.StorageModel>()
-                .IncludeBase<LinkModel, Models.StorageModel.Base.StorageModel>();
+                .IncludeBase<LinkModel, Models.StorageModel.Base.StorageModel>()
+                .ForMember(dest => dest.Destinations, exp => exp.Ignore());
 
             CreateMap<Models.Link.Music.TrackingModel, Models.StorageModel.Music.TrackingStorageModel>()
                  .ForMember(dest => dest.MediaServiceName, exp => exp.Ignore())
@@ -59,6 +66,7 @@ namespace Service.Mapping
 
             CreateMap<Models.Link.Ticket.DestinationModel, Models.StorageModel.Ticket.DestinationStorageModel>()
                 .IncludeBase<Models.Link.Base.DestinationModel, Models.StorageModel.Base.DestinationStorageModel>()
+                .ForMember(dest => dest.ExternalId, exp => exp.Ignore())
                 .ReverseMap();
         }
     }
