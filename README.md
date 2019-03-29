@@ -1,33 +1,33 @@
 # API.TestAssignment
 
-Hi! 
+Hello there! 
 
-This code assignment is closely related to variety of projects at Linkfire. We are working on aggregating information from different media services (such as Spotify, Deezer, iTunes etc..) under one URL. Check this to see how a smart link looks like.
+This is a coding assignment which is very similar with our projects in Linkfire. We are working on aggregating information from different media services (such as Spotify, Deezer, iTunes, etc..) under one URL. Check this to see how a smart link looks like.
 
 - https://lnk.to/test_link - music link landing page
 - https://tix.to/test_link - ticket link landing page
 
-There you can see different media services (destinations), user have an ability to setup different destinations per country. So list of destinations could be different depend on from which country landing page is opened. Fx. if media service not available in some countries, or url is different for different countries.
+There you'll see various media services (destinations), where the user has the ability to set up different destinations per country. The list of the destinations can be different depending on which country the landing page has been opened. For example, if some media services are not available in some countries, or the url is different for different countries.
 
-We respect your time, so we prepared a code template of a task below. There is couple of 'to do' that you could implement. If you have time and prefer to do **everything from scratch, it is also possible**. We are trying to be as flexible as possible and give you an ability to decide on solution and effort that you want to spend on the task. 
+We respect your time, so we prepared a code template of the task below. There is a couple of 'to do' that you could implement. If you have time and prefer to do **everything from scratch, it is also possible**. We are trying to be as flexible as possible and give you the chance to decide on the solution and the effort that you want to put on this task. 
 
-### What will be evaluate and appreciate:
+### What will be evaluated and appreciated:
 
 - ability to write clean, readable and supportable code
-- ability to recognize where pattern/principle could be used and ability to apply the pattern/principle
-- ability to work with existing code (if work with template will be chosen)
-- ability to organize code
+- ability to recognize where a pattern/principle could be used and the ability to apply this pattern/principle
+- ability to work with existing code (if working with the template will be chosen)
+- ability to organize your code
 - ability to write documentation to your own code		
 
-### If you decide to go with template, we expect from you:
+### If you decide to go with the template, we expect from you:
 
-1. to get through code
+1. to get through the code
 2. understand it
 3. finish some 'to do', entire list could be looked up in 'Task List' (see https://docs.microsoft.com/en-us/visualstudio/ide/using-the-task-list?view=vs-2017) (*optional*)
 4. think about the case when multiple users are updating the same link, how to avoid DB entity and Storage model be out of sync (*optional*)
-5. refactor code, for example there is a lot of code duplication (*optional*)
+5. refactoring the code, for example, there is a lot of code duplication (*optional*)
 
-**We are not expecting solving ALL problems**, peek a couple of them and pls write why you choose them in your email, you could also name other problems and would be nice to have, short description how to solve to them.
+**We are not expecting to solve ALL the problems**, peek a couple of them and write why you choose them in your email, you could also name other problems, and it would be nice to have, a short description of how to solve them.
 
 Example:
 ```
@@ -37,9 +37,9 @@ Noted:
 Not all part of the code are testable | Inversion of Control can be implemented (+ name actual places where you found this, 1-2 will be enough)
 ```
 
-## Goal
+## The Goal
 
-Implement [CRUD](https://en.wikipedia.org/wiki/Create,_read,_update_and_delete) operation for links with WEB.API. Information that could be used for link search should be in DB (such as Title, Artist, Code, Domain). All other information (destination and tracking info) should be stored in a local file, assume that this file will be accessible by another system by domain/code. 
+Implement [CRUD](https://en.wikipedia.org/wiki/Create,_read,_update_and_delete) operation for links with WEB.API. Information that could be used for link search should be in DB (such as Title, Artist, Code, Domain). All other information (destination and tracking info) should be stored in a local file, assuming that this file will be accessible by another system by domain/code. 
 
 Let's try to understand what is Link entity and what relations it should have.
 
