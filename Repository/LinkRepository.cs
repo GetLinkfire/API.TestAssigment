@@ -60,12 +60,17 @@ namespace Repository
             entry.Property(x => x.IsActive).IsModified = false;
 
             _context.Domains.Attach(link.Domain);
+
             // TODO: implement DB link update
             var linkArtistIds = link.Artists.Select(x => x.Id).ToList();
-            var artists = _context.Artists.Include(x => x.Links).Where(x => linkArtistIds.Contains(x.Id)).ToDictionary(x => x.Id, x => x);
-          
+            
+            var artists = _context.Artists.Include(x => x.Links)
+                                          .Where(x => linkArtistIds.Contains(x.Id))
+                                          .ToDictionary(x => x.Id, x => x);
+
             foreach (var artist in link.Artists.ToList())
             {
+                _context.Entry(artist).State = EntityState.Detached;
                 if (artists.ContainsKey(artist.Id) && artists[artist.Id].CompareTo(artist) != 0)
                 {
                     _context.Entry(artists[artist.Id]).CurrentValues.SetValues(artist);
@@ -74,7 +79,6 @@ namespace Repository
                 {
                     artists.Add(artist.Id, artist);
                 }
-                _context.Entry(artist).State = EntityState.Detached;
             }
             link.Artists = artists.Select(x => x.Value).ToList();
             _context.SaveChanges();

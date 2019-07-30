@@ -39,6 +39,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
     <Reference Include="FizzWare.NBuilder, Version=1.0.0.0, Culture=neutral, PublicKeyToken=5651b03e12e42c12, processorArchitecture=MSIL">
       <HintPath>..\packages\NBuilder.6.0.0\lib\net40\FizzWare.NBuilder.dll</HintPath>
     </Reference>
@@ -74,6 +75,10 @@
     <ProjectReference Include="..\Repository.Interfaces\Repository.Interfaces.csproj">
       <Project>{13bbad28-6872-4dc9-85b5-480a677472fd}</Project>
       <Name>Repository.Interfaces</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Repository\Repository.csproj">
+      <Project>{BA937CF6-A8B6-4200-A762-42D32928A5FF}</Project>
+      <Name>Repository</Name>
     </ProjectReference>
     <ProjectReference Include="..\Service.Interfaces\Service.Interfaces.csproj">
       <Project>{1ac14a11-e381-49c0-9d36-fbd4db443a74}</Project>
