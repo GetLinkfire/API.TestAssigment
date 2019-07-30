@@ -59,7 +59,8 @@ namespace Service.Link
 			dbLink.Domain = domain;
 			dbLink.Code = argument.Link.Code;
 			dbLink.Url = argument.Link.Url;
-			dbLink.Artists = argument.Link.Artists?.Select(x => new Artist()
+            dbLink.Artists.Clear();
+            dbLink.Artists = argument.Link.Artists?.Select(x => new Artist()
 			{
 				Id = x.Id,
 				Name = x.Name,
