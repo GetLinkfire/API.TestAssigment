@@ -14,240 +14,259 @@ using Service.Models.StorageModel.Ticket;
 
 namespace Service.Link
 {
-	public class UpdateLinkCommand : ICommand<ExtendedLinkModel, UpdateLinkArgument>
-	{
-		private readonly IStorage _storageService;
-		private readonly IDomainRepository _domainRepository;
-		private readonly IMediaServiceRepository _mediaServiceRepository;
-		private readonly ILinkRepository _linkRepository;
+    public class UpdateLinkCommand : ICommand<ExtendedLinkModel, UpdateLinkArgument>
+    {
+        private readonly IStorage _storageService;
+        private readonly IDomainRepository _domainRepository;
+        private readonly IMediaServiceRepository _mediaServiceRepository;
+        private readonly ILinkRepository _linkRepository;
 
-		public UpdateLinkCommand(
-			IStorage storageService,
-			IDomainRepository domainRepository,
-			IMediaServiceRepository mediaServiceRepository,
-			ILinkRepository linkRepository)
-		{
-			_storageService = storageService;
-			_domainRepository = domainRepository;
-			_mediaServiceRepository = mediaServiceRepository;
-			_linkRepository = linkRepository;
-		}
+        public UpdateLinkCommand(
+            IStorage storageService,
+            IDomainRepository domainRepository,
+            IMediaServiceRepository mediaServiceRepository,
+            ILinkRepository linkRepository)
+        {
+            _storageService = storageService;
+            _domainRepository = domainRepository;
+            _mediaServiceRepository = mediaServiceRepository;
+            _linkRepository = linkRepository;
+        }
 
-		public ExtendedLinkModel Execute(UpdateLinkArgument argument)
-		{
-			var dbLink = _linkRepository.GetLink(argument.Link.Id);
+        public ExtendedLinkModel Execute(UpdateLinkArgument argument)
+        {
+            var dbLink = _linkRepository.GetLink(argument.Link.Id);
 
-			if (dbLink.MediaType != argument.Link.MediaType)
-			{
-				throw new NotSupportedException("Link media type update is not supported.");
-			}
+            //if link is not active or not exists exception should be thrown
+            if (!dbLink.IsActive)
+            {
+                throw new Exception(string.Format("The Link {0} is Inactive. It can't be updated", dbLink.Id));
+            }
 
-			var domain = _domainRepository.GetDomain(argument.Link.DomainId);
-			string oldShortLink = null;
+            //update of MediaType should not be supported
+            if (dbLink.MediaType != argument.Link.MediaType)
+            {
+                throw new NotSupportedException("Link media type update is not supported.");
+            }
 
-			if (dbLink.DomainId != argument.Link.DomainId ||
-				!dbLink.Code.Equals(argument.Link.Code, StringComparison.InvariantCultureIgnoreCase))
-			{
-				oldShortLink = LinkHelper.ShortLinkTemplate(dbLink.Domain.Name, dbLink.Code);
-				if (!LinkHelper.IsValidLinkCode(_storageService, domain.Name, argument.Link.Code))
-				{
-					throw new ArgumentException($"Shortlink {domain.Name}/{argument.Link.Code} is already in use.");
-				}
-			}
+            var domain = _domainRepository.GetDomain(argument.Link.DomainId);
+            string oldShortLink = null;
 
-			dbLink.Title = argument.Link.Title;
-			dbLink.Domain = domain;
-			dbLink.Code = argument.Link.Code;
-			dbLink.Url = argument.Link.Url;
-			dbLink.Artists = argument.Link.Artists?.Select(x => new Artist()
-			{
-				Id = x.Id,
-				Name = x.Name,
-				Label = x.Label
-			}).ToList();
+            //if domain or code were changed same validation should be applied
+            if (dbLink.DomainId != argument.Link.DomainId ||
+                !dbLink.Code.Equals(argument.Link.Code, StringComparison.InvariantCultureIgnoreCase))
+            {
+                oldShortLink = LinkHelper.ShortLinkTemplate(dbLink.Domain.Name, dbLink.Code);
+                if (!LinkHelper.IsValidLinkCode(_storageService, domain.Name, argument.Link.Code))
+                {
+                    throw new ArgumentException($"Shortlink {domain.Name}/{argument.Link.Code} is already in use.");
+                }
+            }
 
-			dbLink = _linkRepository.UpdateLink(dbLink);
-			var result = new ExtendedLinkModel()
-			{
-				Id = dbLink.Id,
-				Code = dbLink.Code,
-				DomainId = domain.Id,
-				IsActive = dbLink.IsActive,
-				MediaType = dbLink.MediaType,
-				Title = dbLink.Title,
-				Url = dbLink.Url,
-				Artists = dbLink.Artists?.Select(x => new ArtistModel()
-				{
-					Id = x.Id,
-					Name = x.Name,
-					Label = x.Label
-				}).ToList()
-			};
+            dbLink.Title = argument.Link.Title;
+            dbLink.Domain = domain;
+            dbLink.Code = argument.Link.Code;
+            dbLink.Url = argument.Link.Url;
+            dbLink.Artists = argument.Link.Artists?.Select(x => new Artist()
+            {
+                Id = x.Id,
+                Name = x.Name,
+                Label = x.Label
+            }).ToList();
 
-			var shortLink = LinkHelper.ShortLinkTemplate(domain.Name, argument.Link.Code);
-			string generalLinkPathToRead = LinkHelper.LinkGeneralFilenameTemplate(oldShortLink ?? shortLink);
-			string generalLinkPathToSave = LinkHelper.LinkGeneralFilenameTemplate(shortLink);
+            dbLink = _linkRepository.UpdateLink(dbLink);
+            var result = new ExtendedLinkModel()
+            {
+                Id = dbLink.Id,
+                Code = dbLink.Code,
+                DomainId = domain.Id,
+                IsActive = dbLink.IsActive,
+                MediaType = dbLink.MediaType,
+                Title = dbLink.Title,
+                Url = dbLink.Url,
+                Artists = dbLink.Artists?.Select(x => new ArtistModel()
+                {
+                    Id = x.Id,
+                    Name = x.Name,
+                    Label = x.Label
+                }).ToList()
+            };
 
-			switch (argument.Link.MediaType)
-			{
-				case MediaType.Music:
-					var uniqMediaServiceIds =
-						argument.Link.MusicDestinations.SelectMany(x => x.Value.Select(d => d.MediaServiceId)).Distinct().ToList();
-					var mediaServices = _mediaServiceRepository.GetMediaServices().Where(x => uniqMediaServiceIds.Contains(x.Id)).ToList();
+            var shortLink = LinkHelper.ShortLinkTemplate(domain.Name, argument.Link.Code);
+            string generalLinkPathToRead = LinkHelper.LinkGeneralFilenameTemplate(oldShortLink ?? shortLink);
+            string generalLinkPathToSave = LinkHelper.LinkGeneralFilenameTemplate(shortLink);
 
-					var musicStorage = _storageService.Get<Models.StorageModel.Music.StorageModel>(generalLinkPathToRead);
+            switch (argument.Link.MediaType)
+            {
+                case MediaType.Music:
+                    var uniqMediaServiceIds =
+                        argument.Link.MusicDestinations.SelectMany(x => x.Value.Select(d => d.MediaServiceId)).Distinct().ToList();
+                    var mediaServices = _mediaServiceRepository.GetMediaServices().Where(x => uniqMediaServiceIds.Contains(x.Id)).ToList();
 
-					musicStorage.Title = argument.Link.Title;
-					musicStorage.Url = argument.Link.Url;
+                    var musicStorage = _storageService.Get<Models.StorageModel.Music.StorageModel>(generalLinkPathToRead);
 
-					musicStorage.TrackingInfo = argument.Link.TrackingInfo == null
-						? null
-						: new TrackingStorageModel()
-						{
-							Artist = argument.Link.TrackingInfo.Artist,
-							Album = argument.Link.TrackingInfo.Album,
-							SongTitle = argument.Link.TrackingInfo.SongTitle,
-							Mobile = argument.Link.TrackingInfo.Mobile,
-							Web = argument.Link.TrackingInfo.Web
-						};
+                    musicStorage.Title = argument.Link.Title;
+                    musicStorage.Url = argument.Link.Url;
 
-					musicStorage.Destinations = argument.Link.MusicDestinations?.ToDictionary(
-						md => md.Key,
-						md => md.Value.Where(d => mediaServices.Select(m => m.Id).Contains(d.MediaServiceId)).Select(d =>
-							new Models.StorageModel.Music.DestinationStorageModel()
-							{
-								MediaServiceId = d.MediaServiceId,
-								TrackingInfo = new TrackingStorageModel()
-								{
-									MediaServiceName = mediaServices.First(m => m.Id == d.MediaServiceId).Name,
+                    musicStorage.TrackingInfo = argument.Link.TrackingInfo == null
+                        ? null
+                        : new TrackingStorageModel()
+                        {
+                            Artist = argument.Link.TrackingInfo.Artist,
+                            Album = argument.Link.TrackingInfo.Album,
+                            SongTitle = argument.Link.TrackingInfo.SongTitle,
+                            Mobile = argument.Link.TrackingInfo.Mobile,
+                            Web = argument.Link.TrackingInfo.Web
+                        };
 
-									Artist = d.TrackingInfo?.Artist,
-									Album = d.TrackingInfo?.Album,
-									SongTitle = d.TrackingInfo?.SongTitle,
+                    //music destinations with nonexistent media services should not be saved
+                    /*
+                     * I've noted here that although the criterion is met by checking if the Ids are present in the Db. There's
+                     * no way to track the Destinations which were not saved because of this. There should be a "Warnings" object or
+                     * something related to tell the user: "Hey, these Destination were not saved because the Media Service is not valid,
+                     * review and try again"
+                     */
+                    musicStorage.Destinations = argument.Link.MusicDestinations?.ToDictionary(
+                        md => md.Key,
+                        md => md.Value.Where(d => mediaServices.Select(m => m.Id).Contains(d.MediaServiceId)).Select(d =>
+                            new Models.StorageModel.Music.DestinationStorageModel()
+                            {
+                                MediaServiceId = d.MediaServiceId,
+                                TrackingInfo = new TrackingStorageModel()
+                                {
+                                    MediaServiceName = mediaServices.First(m => m.Id == d.MediaServiceId).Name,
 
-									Mobile = d.TrackingInfo?.Mobile,
-									Web = d.TrackingInfo?.Web,
-								}
-							}).ToList());
+                                    Artist = d.TrackingInfo?.Artist,
+                                    Album = d.TrackingInfo?.Album,
+                                    SongTitle = d.TrackingInfo?.SongTitle,
 
-					_storageService.Save(generalLinkPathToSave, musicStorage);
+                                    Mobile = d.TrackingInfo?.Mobile,
+                                    Web = d.TrackingInfo?.Web,
+                                }
+                            }).ToList());
 
-					result.TrackingInfo = musicStorage.TrackingInfo != null
-						? new Models.Link.Music.TrackingModel()
-						{
-							Artist = musicStorage.TrackingInfo.Artist,
-							SongTitle = musicStorage.TrackingInfo.SongTitle,
-							Album = musicStorage.TrackingInfo.Album,
+                    _storageService.Save(generalLinkPathToSave, musicStorage);
 
-							Mobile = musicStorage.TrackingInfo.Mobile,
-							Web = musicStorage.TrackingInfo.Web
-						}
-						: null;
+                    result.TrackingInfo = musicStorage.TrackingInfo != null
+                        ? new Models.Link.Music.TrackingModel()
+                        {
+                            Artist = musicStorage.TrackingInfo.Artist,
+                            SongTitle = musicStorage.TrackingInfo.SongTitle,
+                            Album = musicStorage.TrackingInfo.Album,
 
-					result.MusicDestinations =
-						musicStorage.Destinations?.ToDictionary(x => x.Key,
-							x => x.Value.Select(d => new Models.Link.Music.DestinationModel()
-							{
-								MediaServiceId = d.MediaServiceId,
-								TrackingInfo = d.TrackingInfo != null
-									? new Models.Link.Music.TrackingModel()
-									{
-										Artist = d.TrackingInfo.Artist,
-										SongTitle = d.TrackingInfo.SongTitle,
-										Album = d.TrackingInfo.Album,
+                            Mobile = musicStorage.TrackingInfo.Mobile,
+                            Web = musicStorage.TrackingInfo.Web
+                        }
+                        : null;
 
-										Mobile = d.TrackingInfo.Mobile,
-										Web = d.TrackingInfo.Web
-									}
-									: null
-							}).ToList());
+                    result.MusicDestinations =
+                        musicStorage.Destinations?.ToDictionary(x => x.Key,
+                            x => x.Value.Select(d => new Models.Link.Music.DestinationModel()
+                            {
+                                MediaServiceId = d.MediaServiceId,
+                                TrackingInfo = d.TrackingInfo != null
+                                    ? new Models.Link.Music.TrackingModel()
+                                    {
+                                        Artist = d.TrackingInfo.Artist,
+                                        SongTitle = d.TrackingInfo.SongTitle,
+                                        Album = d.TrackingInfo.Album,
 
-					break;
-				case MediaType.Ticket:
-					var ticketStorage = _storageService.Get<Models.StorageModel.Ticket.StorageModel>(generalLinkPathToRead);
+                                        Mobile = d.TrackingInfo.Mobile,
+                                        Web = d.TrackingInfo.Web
+                                    }
+                                    : null
+                            }).ToList());
 
-					ticketStorage.Title = argument.Link.Title;
-					ticketStorage.Url = argument.Link.Url;
+                    break;
+                case MediaType.Ticket:
+                    var ticketStorage = _storageService.Get<Models.StorageModel.Ticket.StorageModel>(generalLinkPathToRead);
 
-					// removes keys that are not in argument
-					var keysToRemove = new List<string>();
-					foreach (var existedIsoCode in ticketStorage.Destinations.Keys)
-					{
-						if (!argument.Link.TicketDestinations.Any(x =>
-							x.Key.Equals(existedIsoCode, StringComparison.InvariantCultureIgnoreCase)))
-						{
-							keysToRemove.Add(existedIsoCode);
+                    ticketStorage.Title = argument.Link.Title;
+                    ticketStorage.Url = argument.Link.Url;
 
-						}
-					}
-					foreach (var key in keysToRemove)
-					{
-						ticketStorage.Destinations.Remove(key);
-					}
-					foreach (var ticketDestination in argument.Link.TicketDestinations)
-					{
-						if (!ticketStorage.Destinations.Any(md =>
-							md.Key.Equals(ticketDestination.Key, StringComparison.InvariantCultureIgnoreCase)))
-						{
-							ticketStorage.Destinations.Add(ticketDestination.Key, ticketDestination.Value.Select(v => new Models.StorageModel.Ticket.DestinationStorageModel()
-							{
-								ShowId = v.ShowId,
-								MediaServiceId = v.MediaServiceId,
-								Url = v.Url,
-								Date = v.Date,
-								Venue = v.Venue,
-								Location = v.Location
-							}).ToList());
-						}
-						else
-						{
-							var existedIsoCode = ticketStorage.Destinations
-								.Where(x => x.Key.Equals(ticketDestination.Key, StringComparison.InvariantCultureIgnoreCase))
-								.Select(x => x.Key).First();
-							var existedExternalIds = ticketStorage.Destinations[existedIsoCode].ToDictionary(x => x.ShowId, x => x.ExternalId);
+                    // removes keys that are not in argument
+                    var keysToRemove = new List<string>();
+                    foreach (var existedIsoCode in ticketStorage.Destinations.Keys)
+                    {
+                        if (!argument.Link.TicketDestinations.Any(x =>
+                            x.Key.Equals(existedIsoCode, StringComparison.InvariantCultureIgnoreCase)))
+                        {
+                            keysToRemove.Add(existedIsoCode);
 
-							ticketStorage.Destinations[existedIsoCode] = ticketDestination.Value.Select(v =>
-								new Models.StorageModel.Ticket.DestinationStorageModel()
-								{
-									ShowId = v.ShowId,
-									MediaServiceId = v.MediaServiceId,
-									Url = v.Url,
-									Date = v.Date,
-									Venue = v.Venue,
-									Location = v.Location,
-									ExternalId = existedExternalIds.ContainsKey(v.ShowId) ? existedExternalIds[v.ShowId] : null
-								}).ToList();
-						}
-					}
+                        }
+                    }
+                    foreach (var key in keysToRemove)
+                    {
+                        ticketStorage.Destinations.Remove(key);
+                    }
+                    foreach (var ticketDestination in argument.Link.TicketDestinations)
+                    {
+                        if (!ticketStorage.Destinations.Any(md =>
+                            md.Key.Equals(ticketDestination.Key, StringComparison.InvariantCultureIgnoreCase)))
+                        {
+                            ticketStorage.Destinations.Add(ticketDestination.Key, ticketDestination.Value.Select(v => new Models.StorageModel.Ticket.DestinationStorageModel()
+                            {
+                                ShowId = v.ShowId,
+                                MediaServiceId = v.MediaServiceId,
+                                Url = v.Url,
+                                Date = v.Date,
+                                Venue = v.Venue,
+                                Location = v.Location
+                            }).ToList());
+                        }
+                        else
+                        {
+                            var existedIsoCode = ticketStorage.Destinations
+                                .Where(x => x.Key.Equals(ticketDestination.Key, StringComparison.InvariantCultureIgnoreCase))
+                                .Select(x => x.Key).First();
+                            var existedExternalIds = ticketStorage.Destinations[existedIsoCode].ToDictionary(x => x.ShowId, x => x.ExternalId);
 
-					_storageService.Save(generalLinkPathToSave, ticketStorage);
+                            //ExternalId for ticket destinations should not be updatable
+                            /*
+                             * Same goes here. An user can report a defect thinking the ExternalId is not being updated. Just a warning, "You can't do that".                             *  
+                             */
+                            ticketStorage.Destinations[existedIsoCode] = ticketDestination.Value.Select(v =>
+                                new Models.StorageModel.Ticket.DestinationStorageModel()
+                                {
+                                    ShowId = v.ShowId,
+                                    MediaServiceId = v.MediaServiceId,
+                                    Url = v.Url,
+                                    Date = v.Date,
+                                    Venue = v.Venue,
+                                    Location = v.Location,
+                                    ExternalId = existedExternalIds.ContainsKey(v.ShowId) ? existedExternalIds[v.ShowId] : null
+                                }).ToList();
+                        }
+                    }
 
-					result.TicketDestinations =
-						ticketStorage.Destinations?.ToDictionary(x => x.Key,
-							x => x.Value.Select(d => new Models.Link.Ticket.DestinationModel()
-							{
-								MediaServiceId = d.MediaServiceId,
-								Url = d.Url,
-								ShowId = d.ShowId,
-								Venue = d.Venue,
-								Date = d.Date,
-								Location = d.Location
-							}).ToList());
-					break;
-				default:
-					throw new NotSupportedException($"Link type {argument.Link.MediaType} is not supported.");
-			}
+                    _storageService.Save(generalLinkPathToSave, ticketStorage);
 
-			if (oldShortLink != null)
-				_storageService.Delete(oldShortLink);
+                    result.TicketDestinations =
+                        ticketStorage.Destinations?.ToDictionary(x => x.Key,
+                            x => x.Value.Select(d => new Models.Link.Ticket.DestinationModel()
+                            {
+                                MediaServiceId = d.MediaServiceId,
+                                Url = d.Url,
+                                ShowId = d.ShowId,
+                                Venue = d.Venue,
+                                Date = d.Date,
+                                Location = d.Location
+                            }).ToList());
+                    break;
+                default:
+                    throw new NotSupportedException($"Link type {argument.Link.MediaType} is not supported.");
+            }
 
-			return result;
+            if (oldShortLink != null)
+                _storageService.Delete(oldShortLink);
 
-		}
-	}
+            return result;
 
-	public class UpdateLinkArgument
-	{
-		public ExtendedLinkModel Link { get; set; }
-	}
+        }
+    }
+
+    public class UpdateLinkArgument
+    {
+        public ExtendedLinkModel Link { get; set; }
+    }
 }
