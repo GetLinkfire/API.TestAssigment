@@ -53,17 +53,24 @@ namespace Repository
 
 		public Link UpdateLink(Link link)
 		{
-			var entry = _context.Entry(link);
+			var entry = _context.Entry<Link>(link);
 
-			// make sure that next fields will be never modified on update
-			entry.Property(x => x.MediaType).IsModified = false;
+            if (entry == null)
+            {
+                throw new Exception($"Link {link.Id} not found.");
+            }
+
+            // make sure that next fields will be never modified on update
+            entry.Property(x => x.MediaType).IsModified = false;
 			entry.Property(x => x.IsActive).IsModified = false;
 
 			_context.Domains.Attach(link.Domain);
+			_context.Links.Attach(link);
 
-			// TODO: implement DB link update
-			throw new NotImplementedException();
-		}
+            _context.Entry(entry.Entity).CurrentValues.SetValues(link);
+            _context.SaveChanges();
+            return link;
+        }
 
 		public Link DeleteLink(Guid linkId)
 		{

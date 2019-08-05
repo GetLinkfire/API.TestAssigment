@@ -33,5 +33,11 @@ namespace Repository.Entities
 		public virtual Domain Domain { get; set; }
 
 		public virtual ICollection<Artist> Artists { get; set; }
-	}
+
+        /*
+         * TODO: Add optimistic concurrency in the Link Entity, to help mitigate the out of sync of point #4
+         */
+        //[Timestamp]
+        //public byte[] RowVersion { get; set; }
+    }
 }

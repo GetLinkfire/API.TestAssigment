@@ -102,6 +102,46 @@ namespace Repository.Tests
 			Assert.AreEqual(link.Artists.Count, saved.Artists.Count);
 		}
 
-		// TODO: implement DB link update + unit tests
-	}
+        [Test]
+        public void UpdateLink_CheckPropertyChanges()
+        {
+            var domain = Builder<Domain>.CreateNew()
+                .With(d => d.Id, Guid.NewGuid())
+                .With(d => d.Name, "domain")
+                .Build();
+
+            // imitates existing entries
+            using (var contex = new Context())
+            {
+                contex.Domains.Add(domain);
+                contex.SaveChanges();
+            }
+
+            var link = Builder<Link>.CreateNew()
+                .With(x => x.Id, Guid.NewGuid())
+                .With(x => x.Domain, domain)
+                .With(x => x.DomainId, domain.Id)
+                .Build();
+
+            var entity = _repository.CreateLink(link);
+
+            var linkToUpdate = _context.Entry(link);
+
+            // make some property changes to the created link
+            linkToUpdate.Property(x => x.Code).CurrentValue = "code";
+            linkToUpdate.Property(x => x.Title).CurrentValue = "title";
+            linkToUpdate.Property(x => x.Url).CurrentValue = "url";
+
+            entity = _repository.UpdateLink(link);
+
+            var updated = _context.Links.Find(entity.Id);
+
+            Assert.IsTrue(entity.IsActive);
+
+            Assert.IsNotNull(updated);
+            Assert.AreEqual(updated.Code, "code");
+            Assert.AreEqual(updated.Title, "title");
+            Assert.AreEqual(updated.Url, "url");
+        }
+    }
 }
