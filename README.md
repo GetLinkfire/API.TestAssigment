@@ -115,3 +115,5 @@ Software versions used:
  
   Visual Studio 2017;
   Microsoft SQL Server Management Studio v17.6;
+  
+Please make sure your PR will include only code changes to avoid seeing every line in the file changed because of different formatting options. Thank you!
